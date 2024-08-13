@@ -1,9 +1,0 @@
-{
-    "domain": "tcp_device",
-    "name": "TCP Device",
-    "version": "1.0",
-    "documentation": "https://example.com",
-    "requirements": [],
-    "dependencies": [],
-    "codeowners": []
-  }

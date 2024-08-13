@@ -1,0 +1,11 @@
+{
+    "domain": "savant.com.cn",
+    "name": "Savant",
+    "version": "1.0",
+    "documentation": "https://github.com/SavantRain/SavantLighting",
+    "requirements": [],
+    "dependencies": [],
+    "codeowners": [],
+    "config_flow": true,
+    "integration_type": "hub"
+  }

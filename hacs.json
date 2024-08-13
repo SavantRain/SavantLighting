@@ -1,0 +1,9 @@
+{
+    "name": "Savant",
+    "content_in_root": false,
+    "domains": ["savant.com.cn"],
+    "country": "us",
+    "zip_release": false,
+    "filename": "custom_components/savant_lighting/",
+    "render_readme": true
+  }
