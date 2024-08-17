@@ -1,52 +1,50 @@
-"""Support for SavantLighting."""
-import logging
-from homeassistant.config_entries import ConfigEntry
+"""Savant Lighting Integration for Home Assistant."""
 from homeassistant.core import HomeAssistant
+from .const import DOMAIN
+from homeassistant.helpers import device_registry as dr, entity_registry as er
 
-# 定义日志记录器
-_LOGGER = logging.getLogger(__name__)
-
-# 定义域名（需与 manifest.json 中的 domain 一致）
-DOMAIN = "savant.com.cn"
-
-# 在 Home Assistant 启动时调用
-async def async_setup(hass: HomeAssistant, config: dict) -> bool:
-    """配置集成所需的基本设置。"""
-    _LOGGER.info("Setting up the integration")
-    
-    # 示例：注册一个服务
-    async def handle_service(call):
-        """处理服务调用的逻辑。"""
-        _LOGGER.info("Service called with data: %s", call.data)
-    
-    hass.services.async_register(DOMAIN, "example_service", handle_service)
-    
+async def async_setup(hass: HomeAssistant, config: dict):
+    """Set up the Savant Lighting component."""
+    hass.states.async_set(f"{DOMAIN}.status", "initialized")
     return True
 
-# 在通过配置界面设置集成时调用
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """从配置条目设置集成。"""
-    _LOGGER.info("Setting up the integration from config entry")
-    
-    # 你可以在这里初始化你的平台，例如传感器、开关等
-    hass.async_create_task(
-        hass.config_entries.async_forward_entry_setup(entry, "light")
+async def async_setup_entry(hass: HomeAssistant, entry):
+    """Set up Savant Lighting from a config entry."""
+    config = entry.data
+    device_type = config["type"]
+    name = config["name"]
+    host = config["host"]
+    port = config["port"]
+
+    device_registry = dr.async_get(hass)
+    entity_registry = er.async_get(hass)
+
+    # Create or update device
+    device = device_registry.async_get_or_create(
+        config_entry_id=entry.entry_id,
+        connections={(dr.CONNECTION_NETWORK_MAC, f"{host}:{port}")},
+        identifiers={(DOMAIN, f"{host}:{port}")},
+        manufacturer="Savant",
+        name=name,
+        model=device_type.capitalize(),
+        sw_version="1.0",
     )
-    return True
 
-# 在配置条目更新时调用
-async def async_update_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """更新配置条目时调用。"""
-    _LOGGER.info("Updating the integration with new config entry")
-    
-    # 更新逻辑可以放在这里
+    # Forward the setup to the correct platform (light or switch)
+    if device_type == "light":
+        # entity_registry.async_get_or_create(
+        #     domain="light",
+        #     platform=DOMAIN,
+        #     unique_id=f"{host}:{port}_light",
+        #     config_entry=entry,
+        #     device_id=device.id,
+        # )
+        hass.async_create_task(
+            hass.config_entries.async_forward_entry_setup(entry, "light")
+        )
+    elif device_type == "switch":
+        hass.async_create_task(
+            hass.config_entries.async_forward_entry_setup(entry, "switch")
+        )
 
-# 在配置条目卸载时调用
-async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """卸载配置条目时调用。"""
-    _LOGGER.info("Unloading the integration")
-    
-    # 卸载平台，例如传感器、开关等
-    await hass.config_entries.async_forward_entry_unload(entry, "light")
-    
     return True

@@ -1,2 +1,5 @@
-.venv
-.vscode
+.storage
+blueprints
+.HA_VERSION
+home-assistant.log*
+__pycache__

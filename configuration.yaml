@@ -1,0 +1,5 @@
+debugpy:
+
+savant_lighting:
+  host: 192.168.1.100
+  api_key: "your_api_key"

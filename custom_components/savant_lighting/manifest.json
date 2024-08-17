@@ -1,11 +1,10 @@
 {
-    "domain": "savant.com.cn",
-    "name": "Savant",
-    "version": "1.0",
-    "documentation": "https://github.com/SavantRain/SavantLighting",
-    "requirements": [],
-    "dependencies": [],
-    "codeowners": [],
-    "config_flow": true,
-    "integration_type": "hub"
-  }
+  "domain": "savant_lighting",
+  "name": "Savant Lighting",
+  "version": "1.0.0",
+  "documentation": "https://github.com/SavantRain/SavantLighting",
+  "requirements": [],
+  "dependencies": [],
+  "config_flow": true,
+  "codeowners": ["@laotycoon"]
+}
