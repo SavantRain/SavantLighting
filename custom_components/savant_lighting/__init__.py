@@ -1,5 +1,5 @@
-"""Savant Lighting Integration for Home Assistant."""
 from homeassistant.core import HomeAssistant
+from homeassistant.config_entries import ConfigEntry
 from .const import DOMAIN
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 
@@ -8,7 +8,7 @@ async def async_setup(hass: HomeAssistant, config: dict):
     hass.states.async_set(f"{DOMAIN}.status", "initialized")
     return True
 
-async def async_setup_entry(hass: HomeAssistant, entry):
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     """Set up Savant Lighting from a config entry."""
     config = entry.data
     device_type = config["type"]
@@ -20,7 +20,7 @@ async def async_setup_entry(hass: HomeAssistant, entry):
     entity_registry = er.async_get(hass)
 
     # Create or update device
-    device = device_registry.async_get_or_create(
+    device_registry.async_get_or_create(
         config_entry_id=entry.entry_id,
         connections={(dr.CONNECTION_NETWORK_MAC, f"{host}:{port}")},
         identifiers={(DOMAIN, f"{host}:{port}")},
@@ -31,20 +31,12 @@ async def async_setup_entry(hass: HomeAssistant, entry):
     )
 
     # Forward the setup to the correct platform (light or switch)
+    platforms = []
     if device_type == "light":
-        # entity_registry.async_get_or_create(
-        #     domain="light",
-        #     platform=DOMAIN,
-        #     unique_id=f"{host}:{port}_light",
-        #     config_entry=entry,
-        #     device_id=device.id,
-        # )
-        hass.async_create_task(
-            hass.config_entries.async_forward_entry_setup(entry, "light")
-        )
+        platforms.append("light")
     elif device_type == "switch":
-        hass.async_create_task(
-            hass.config_entries.async_forward_entry_setup(entry, "switch")
-        )
+        platforms.append("switch")
+
+    await hass.config_entries.async_forward_entry_setups(entry, platforms)
 
     return True
