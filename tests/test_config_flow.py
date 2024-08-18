@@ -1,8 +1,8 @@
 import pytest
 from homeassistant import config_entries, data_entry_flow
 from homeassistant.core import HomeAssistant
-from custom_components.savant_lighting.config_flow import SavantLightConfigFlow
-from light.const import DOMAIN
+from custom_components.savant_lighting.config_flow import SavantLightingConfigFlow
+from custom_components.savant_lighting.const import DOMAIN
 
 @pytest.fixture
 def hass():
@@ -10,7 +10,7 @@ def hass():
 
 async def test_show_form(hass):
     """测试配置流程的初始表单显示。"""
-    flow = MokaLightConfigFlow()
+    flow = SavantLightingConfigFlow()
     flow.hass = hass
 
     result = await flow.async_step_user(user_input=None)
@@ -20,7 +20,7 @@ async def test_show_form(hass):
 
 async def test_create_entry(hass):
     """测试配置流程的创建配置项。"""
-    flow = MokaLightConfigFlow()
+    flow = SavantLightingConfigFlow()
     flow.hass = hass
 
     user_input = {
