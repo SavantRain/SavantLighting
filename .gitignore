@@ -3,3 +3,4 @@ blueprints
 .HA_VERSION
 home-assistant.log*
 __pycache__
+home-assistant_v2.db*

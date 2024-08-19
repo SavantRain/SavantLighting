@@ -1,21 +1,24 @@
 from homeassistant.components.light import LightEntity, ColorMode
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from .const import DOMAIN
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
     """Set up Savant Light from a config entry."""
-    config = entry.data
+    config = hass.data[DOMAIN][entry.entry_id]
     name = config["name"]
     host = config["host"]
     port = config["port"]
-
-    async_add_entities([SavantLight(name, host, port)])
+    device_id = config["device_id"]
+    
+    async_add_entities([SavantLight(name, host, port, device_id)])
 
 class SavantLight(LightEntity):
     """Representation of a Savant Light."""
 
-    def __init__(self, name, host, port):
+    def __init__(self, name, host, port, device_id):
         """Initialize the light."""
+        self._device_id = device_id
         self._name = name
         self._host = host
         self._port = port
@@ -24,7 +27,22 @@ class SavantLight(LightEntity):
         self._hs_color = (0, 0)
         self._supported_color_modes = {ColorMode.HS}
         self._color_mode = ColorMode.HS
+        
+    @property
+    def name(self):
+        """Return the display name of this light."""
+        return self._name
+    
+    @property
+    def unique_id(self):
+        """Return a unique ID for this light."""
+        # This is no longer needed as unique_id is defined in entity_registry
+        return f"{self._host}_{self._port}_{self._name}_light"
 
+    @property
+    def device_id(self):
+        return self._device_id
+    
     @property
     def supported_color_modes(self):
         """Return the supported color modes."""
@@ -34,16 +52,6 @@ class SavantLight(LightEntity):
     def color_mode(self):
         """Return the current color mode."""
         return self._color_mode
-
-    @property
-    def unique_id(self):
-        """Return a unique ID for this light."""
-        return f"{self._host}_{self._port}_{self._name}_light"
-
-    @property
-    def name(self):
-        """Return the display name of this light."""
-        return self._name
 
     @property
     def is_on(self):
@@ -60,6 +68,13 @@ class SavantLight(LightEntity):
         """Return the color of the light."""
         return self._hs_color
 
+    @property
+    def device_info(self):
+        """Return device information to link this entity with the device registry."""
+        return {
+            "identifiers": {(DOMAIN, f"{self._host}:{self._port}_{self._name}")}
+        }
+    
     async def async_turn_on(self, **kwargs):
         """Turn on the light."""
         self._state = True
