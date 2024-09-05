@@ -6,5 +6,7 @@
   "requirements": [],
   "dependencies": [],
   "config_flow": true,
-  "codeowners": ["@laotycoon"]
+  "codeowners": ["@laotycoon"],
+  "iot_class": "local_push",
+  "translations": ["strings.json"]
 }

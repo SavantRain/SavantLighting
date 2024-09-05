@@ -1,0 +1,32 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "title": "网关配置",
+                "description": "请输入网关信息。",
+                "data": {
+                  "host": "IP地址",
+                  "port": "端口"
+                }
+            },
+            "add": {
+              "title": "添加设备",
+              "description": "请输入设备信息。",
+              "data": {
+                  "name": "设备名称",
+                  "module_address": "模块地址",
+                  "loop_address": "回路地址"
+              }
+            },
+            "edit_device": {
+                "title": "修改设备",
+                "description": "请输入设备信息。",
+                "data": {
+                  "name": "设备名称",
+                  "module_address": "模块地址",
+                  "loop_address": "回路地址"
+                }
+            }
+        }
+    }
+}

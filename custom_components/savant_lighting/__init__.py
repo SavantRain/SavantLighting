@@ -3,68 +3,62 @@ from homeassistant.config_entries import ConfigEntry
 from .const import DOMAIN
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers.entity_platform import async_get_platforms
+from homeassistant.const import Platform
+
+
+PLATFORMS = [Platform.LIGHT, Platform.SWITCH]
+
 
 async def async_setup(hass: HomeAssistant, config: dict):
     """Set up the Savant Lighting component."""
     # hass.states.async_set(f"{DOMAIN}.status", "initialized")
     return True
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
-    """Set up Savant Lighting from a config entry."""
-    config = entry.data
-    device_type = config["type"]
-    name = config["name"]
-    host = config["host"]
-    port = config["port"]
 
-    device_registry = dr.async_get(hass)
-    entity_registry = er.async_get(hass)
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Set up Savant Lighting from a config entry."""
     if DOMAIN not in hass.data:
         hass.data[DOMAIN] = {}
-        
-    # Create or update device
-    device = device_registry.async_get_or_create(
-        config_entry_id=entry.entry_id,
-        connections={(dr.CONNECTION_NETWORK_MAC, f"{host}:{port}")},
-        identifiers={(DOMAIN, f"{host}:{port}_{name}")},
-        manufacturer="Savant",
-        name=name,
-        model=device_type.capitalize(),
-        sw_version="1.0",
-    )
-    
-    # Forward the setup to the correct platform (light or switch)
-    platforms = []
-    if device_type == "light":
-        platforms.append("light")
-    elif device_type == "switch":
-        platforms.append("switch")
 
-    # Pass the device_id to the platform setup
+    # 保存配置信息
     hass.data[DOMAIN][entry.entry_id] = {
-        "device_id": device.id,
-        "host": host,
-        "port": port,
-        "name": name
+        "host": entry.data.get("host"),
+        "port": entry.data.get("port"),
+        "devices": entry.data.get("devices", []), 
     }
 
-    await hass.config_entries.async_forward_entry_setups(entry, platforms)
+    # Forward the setup to the correct platform (light and switch)
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
     return True
 
-
-# async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
-#     """Unload a config entry."""
-#     # Unload the platforms
-#     unload_ok = await hass.config_entries.async_unload_platforms(entry, ["light", "switch"])
-
-#     # Clean up the registry data if needed
-#     if unload_ok:
-#         device_registry = dr.async_get(hass)
-#         entity_registry = er.async_get(hass)
+async def async_update_config_entry(hass: HomeAssistant, entry_id: str, new_data: dict) -> None:
+    """Update the config entry data in the Home Assistant database."""
+    entry = hass.config_entries.async_get_entry(entry_id)
+    if entry:
+        # 合并新数据和现有数据
+        updated_data = {**entry.data, **new_data}
+        hass.config_entries.async_update_entry(entry, data=updated_data)
         
-#         device_registry.async_clear_config_entry(entry.entry_id)
-#         entity_registry.async_clear_config_entry(entry.entry_id)
-        
-#         hass.data[DOMAIN].pop(entry.entry_id, None)
+async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Unload a config entry."""
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
-#     return unload_ok
+    if unload_ok:
+        # Clean up the integration data
+        hass.data[DOMAIN].pop(entry.entry_id)
+
+        # Clean up the device registry data
+        device_registry = dr.async_get(hass)
+        entity_registry = er.async_get(hass)
+
+        # 删除与该配置条目关联的设备和实体
+        device_entries = dr.async_entries_for_config_entry(device_registry, entry.entry_id)
+        for device_entry in device_entries:
+            device_registry.async_remove_device(device_entry.id)
+
+        entity_entries = er.async_entries_for_config_entry(entity_registry, entry.entry_id)
+        for entity_entry in entity_entries:
+            entity_registry.async_remove(entity_entry.entity_id)
+
+    return unload_ok
