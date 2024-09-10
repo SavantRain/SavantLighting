@@ -121,8 +121,3 @@ class SavantSwitch(SwitchEntity):
         except socket.error as e:
             _LOGGER.error(f"Error sending data to {self._host}:{self._port} - {e}")
             
-            
-            
-    def hex_padding(input_str):
-        hex_value = f"{int(input_str):02x}"
-        return hex_value
