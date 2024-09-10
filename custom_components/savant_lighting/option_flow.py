@@ -98,8 +98,8 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
         # 添加设备表单，包含名称字段
         data_schema = vol.Schema({
             vol.Required("name", default="设备名称"): str,
-            vol.Required("module_address", default="模块地址"): str,
-            vol.Required("loop_address", default="回路地址"): str,
+            vol.Required("module_address", default="模块地址: 1-64"): str,
+            vol.Required("loop_address", default="回路地址: 1-8"): str,
         })
         return self.async_show_form(step_id="add", data_schema=data_schema)
     

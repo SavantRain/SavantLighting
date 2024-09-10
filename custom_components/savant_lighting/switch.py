@@ -72,7 +72,6 @@ class SavantSwitch(SwitchEntity):
         # 这可以是通过 REST API 调用、MQTT 消息或其他协议
         hex_command = self._convert_to_hex(command)
         self._send_tcp_command(hex_command)
-        
         pass
     
     async def async_update(self):
@@ -86,23 +85,20 @@ class SavantSwitch(SwitchEntity):
         """将'开'和'关'的命令转换为十六进制格式"""
         # 指令第二个字节为IP的最后一位，如192.168.1.230，将230转化为十六进制E6在指令中进行传输
         #最后一个字节AC为校验位，校验方式：和校验
-        host_last_hex = hex(int(self._host.split('.')[-1]))
-        host_last_hex = host_last_hex[2:]
-        host_hex = bytes(f"AC{int(host_last_hex):02X}0010", 'utf-8').hex()
-        module_hex = bytes(f"{int(self._module_address):02X}", 'utf-8').hex()
-        loop_hex = bytes(f"{int(self._loop_address):02X}", 'utf-8').hex()
+        host_hex = f"AC{int(self._host.split('.')[-1]):02X}0010"
+        module_hex = f"AC{int(self._module_address):02X}0010"
+        loop_hex = f"{int(self._loop_address):02X}"
         if command == "on":
-            command_hex = bytes('000401000000AC', 'utf-8').hex()
+            command_hex = '000401000000AC'
         elif command == "off":
-            command_hex = bytes('000400000000AC', 'utf-8').hex()
+            command_hex = '000400000000AC'
         else:
-            command_hex = bytes('', 'utf-8').hex()
-        
+            command_hex = ''
         host_bytes = bytes.fromhex(host_hex)
         module_bytes = bytes.fromhex(module_hex)
         loop_bytes = bytes.fromhex(loop_hex)
         command_bytes = bytes.fromhex(command_hex)
-        command  = host_bytes + module_bytes + loop_bytes + command_bytes
+        command = host_bytes + module_bytes + loop_bytes + command_bytes
         print(command)
         return command
 
