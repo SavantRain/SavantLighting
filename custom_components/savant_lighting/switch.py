@@ -85,6 +85,7 @@ class SavantSwitch(SwitchEntity):
         """将'开'和'关'的命令转换为十六进制格式"""
         #指令第二个字节为IP的最后一位，如192.168.1.230，将230转化为十六进制E6在指令中进行传输
         #最后一个字节AC为校验位，校验方式：和校验
+        
         host_hex = f"AC{int(self._host.split('.')[-1]):02X}0010"
         module_hex = f"AC{int(self._module_address):02X}0010"
         loop_hex = f"{int(self._loop_address):02X}"
