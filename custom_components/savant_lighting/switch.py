@@ -70,11 +70,6 @@ class SavantSwitch(SwitchEntity):
         """Send the current state to the actual device."""
         # 在这里实现与实际硬件设备通信的逻辑
         # 这可以是通过 REST API 调用、MQTT 消息或其他协议
-        host = self._host
-        port = self._port
-        module_address = self._module_address
-        loop_address = self._loop_address
-        print(f"{host}:{port} {module_address}:{loop_address}")
         hex_command = self._convert_to_hex(command)
         self._send_tcp_command(hex_command)
         
