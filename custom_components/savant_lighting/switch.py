@@ -78,23 +78,57 @@ class SavantSwitch(SwitchEntity):
         """Fetch new state data for this switch."""
         # 从实际设备获取新的状态数据
         # 例如，调用 REST API 端点或读取 MQTT 主题
-        self._state = True  # 更新为实际状态
-        
-        
+        response = await self._get_state_from_device()
+
+        if response:
+            self._state = self._parse_device_state(response)  # 更新为实际状态
+            self._async_write_ha_state()
+
+    async def _get_state_from_device(self):
+        command = self._query_to_hex("get_state")
+        return self._send_tcp_command(command)
+
+    def _parse_device_state(self, response):
+        try:
+            if len(response) >= 12:
+                relay_state = response[8]
+
+                if relay_state == 0x01:
+                    return True
+                elif relay_state == 0x00:
+                    return False
+                else:
+                    _LOGGER.warning("无法解析继电器状态：{relay_state}")
+            else:
+                _LOGGER.error("无效的设备回复长度：{len(response)}")
+        except Exception as e:
+            _LOGGER.error("解析设备状态出错：{e}")
+
+        return self._state
+    
+    def _query_to_hex(self, command):
+        #查询指令
+        host_hex = f"AC{int(self._host.split('.')[-1]):02X}"
+        module_hex = f"{int(self._module_address):02X}00B0"
+        command_hex = '01000108CA'
+        host_bytes = bytes.fromhex(host_hex)
+        module_bytes = bytes.fromhex(module_hex)
+        command_bytes = bytes.fromhex(command_hex)
+        command = host_bytes + module_bytes + command_bytes
+        print(command)
+        return command
+
     def _convert_to_hex(self, command):
         """将'开'和'关'的命令转换为十六进制格式"""
         #指令第二个字节为IP的最后一位，如192.168.1.230，将230转化为十六进制E6在指令中进行传输
         #最后一个字节AC为校验位，校验方式：和校验
-
-
-        
         host_hex = f"AC{int(self._host.split('.')[-1]):02X}0010"
-        module_hex = f"AC{int(self._module_address):02X}0010"
+        module_hex = f"{int(self._module_address):02X}"
         loop_hex = f"{int(self._loop_address):02X}"
         if command == "on":
-            command_hex = '000401000000AC'
+            command_hex = '000401000000CA'
         elif command == "off":
-            command_hex = '000400000000AC'
+            command_hex = '000400000000CA'
         else:
             command_hex = ''
         host_bytes = bytes.fromhex(host_hex)
@@ -112,6 +146,8 @@ class SavantSwitch(SwitchEntity):
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.connect((self._host, self._port))
                 s.sendall(data)
+#                response = s.recv(1024)
+#                return response
         except socket.error as e:
             _LOGGER.error(f"Error sending data to {self._host}:{self._port} - {e}")
             
