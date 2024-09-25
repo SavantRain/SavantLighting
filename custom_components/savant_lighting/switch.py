@@ -148,6 +148,7 @@ class SavantSwitch(SwitchEntity):
                 s.sendall(data)
 #                response = s.recv(1024)
 #                return response
+
         except socket.error as e:
             _LOGGER.error(f"Error sending data to {self._host}:{self._port} - {e}")
             
