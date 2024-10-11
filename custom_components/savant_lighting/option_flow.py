@@ -72,19 +72,22 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
         if user_input is not None:
             # 确保 'devices' 已初始化
             devices = self.hass.data[DOMAIN].setdefault("devices", [])
+            host = self.config_entry.data.get("host")
+            port = self.config_entry.data.get("port")
+            
             device_data = {
                 "type": self.device_type,
                 "name": user_input["name"],
                 "module_address": user_input["module_address"],
                 "loop_address": user_input["loop_address"],
-                "host": self.host,
-                "port": self.port
+                "host": host,
+                "port": port
             }
             devices.append(device_data)
 
             # Update the config entry with the modified 'devices' list
             self.hass.config_entries.async_update_entry(
-                self.config_entry, data={"devices": devices}
+                self.config_entry, data={"devices": devices, "host": host, "port": port}
             )
 
             # 注册设备和实体
@@ -305,10 +308,14 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
 
         # 从配置条目中获取设备列表
         devices = entry.data.get("devices", [])
-
+        host = entry.data.get("host")
+        port = entry.data.get("port")
+        
         # 根据名称查找设备
         for device in devices:
             if device["name"] == device_name:
+                device["host"] = host
+                device["port"] = port
                 return device
 
         # 如果找不到设备，返回 None
