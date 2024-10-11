@@ -35,7 +35,6 @@ class SavantSwitch(SwitchEntity):
         self._loop_address = loop_address
         self._host = host
         self._port = port
-        # self._attr_unique_id = f"{module_address}_{loop_address}_switch"
         self._state = False
         self._last_known_state = None  # 用于存储最后已知状态
         self._is_online = True  # 在线状态初始化为
