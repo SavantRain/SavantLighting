@@ -22,6 +22,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             loop_address=device["loop_address"],
             host=device["host"],
             port=device["port"],
+            sub_device_type=device["sub_device_type"]
         )
         for device in config if device["type"] == "light"
     ]
@@ -30,21 +31,28 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 class SavantLight(LightEntity):
     """Representation of a Savant Light."""
 
-    def __init__(self, name, module_address, loop_address, host, port):
+    def __init__(self, name, module_address, loop_address, host, port, sub_device_type):
         """Initialize the Savant Light."""
         self._attr_name = name
         self._module_address = module_address
         self._loop_address = loop_address
         self._host = host
         self._port = port
-        self._supported_color_modes = {ColorMode.HS, ColorMode.BRIGHTNESS}  # 支持HS颜色模式和亮度
-        self._color_mode = ColorMode.HS
+        self._sub_device_type = sub_device_type
         self._brightness = 255
-        self._hs_color = (0, 0)
-        self._color_temp = 250
         self._state = False
         self._last_known_state = None  # 用于存储最后已知状态
         self._is_online = True  # 在线状态初始化为
+        if self._sub_device_type == "rgb":
+            self._color_temp = 250
+            self._color_mode = ColorMode.HS
+            self._hs_color = (0, 0)
+            self._supported_color_modes = {ColorMode.HS, ColorMode.COLOR_TEMP, ColorMode.BRIGHTNESS}  # 支持HS颜色模式和亮度
+        elif self._sub_device_type == "cw":
+            self._color_temp = 250
+            self._supported_color_modes = {ColorMode.COLOR_TEMP, ColorMode.BRIGHTNESS}  # 支持HS颜色模式和亮度
+        else:
+            self._supported_color_modes = {ColorMode.BRIGHTNESS}  # 支持HS颜色模式和亮
 
     async def async_added_to_hass(self):
         """Callback when entity is added to hass."""
@@ -102,14 +110,25 @@ class SavantLight(LightEntity):
     async def async_turn_on(self, **kwargs):
         """Turn on the light."""
         self._state = True
-        if "brightness" in kwargs:
-            self._brightness = kwargs["brightness"]
-        if "color_temp" in kwargs:
-            self._color_temp = kwargs["color_temp"]
-        if "hs_color" in kwargs:
-            self._hs_color = kwargs["hs_color"]
-            self._color_mode = ColorMode.HS
-            
+        if self._sub_device_type == "rgb":
+            if "brightness" in kwargs:
+                self._brightness = kwargs["brightness"]
+            if "color_temp" in kwargs:
+                self._color_temp = kwargs["color_temp"]
+                self._color_mode = ColorMode.COLOR_TEMP
+            if "hs_color" in kwargs:
+                self._hs_color = kwargs["hs_color"]
+                self._color_mode = ColorMode.HS
+        elif self._sub_device_type == "cw":
+            if "brightness" in kwargs:
+                self._brightness = kwargs["brightness"]
+            if "color_temp" in kwargs:
+                self._color_temp = kwargs["color_temp"]
+                self._color_mode = ColorMode.COLOR_TEMP
+        else:
+            if "brightness" in kwargs:
+                self._brightness = kwargs["brightness"]
+                
         await self._send_state_to_device("on")
         self.async_write_ha_state()
 
@@ -167,12 +186,31 @@ class SavantLight(LightEntity):
         host_hex = f"AC{int(self._host.split('.')[-1]):02X}0010"
         module_hex = f"{int(self._module_address):02X}"
         loop_hex = f"{int(self._loop_address):02X}"
-        if command == "on":
-            command_hex = '000401000000CA'
-        elif command == "off":
-            command_hex = '000400000000CA'
+        
+        # 处理RGB灯光的开关操作
+        if self._sub_device_type == "rgb":
+            if command == "on":
+                command_hex = '000401000000CA'
+            elif command == "off":
+                command_hex = '000400000000CA'
+            else:
+                command_hex = ''
+        # 处理双色温灯光的开关操作
+        elif self._sub_device_type == "cw":
+            if command == "on":
+                command_hex = '000401000000CA'
+            elif command == "off":
+                command_hex = '000400000000CA'
+            else:
+                command_hex = ''
+        # 处理单色温灯光的开关操作
         else:
-            command_hex = ''
+            if command == "on":
+                command_hex = '000401000000CA'
+            elif command == "off":
+                command_hex = '000400000000CA'
+            else:
+                command_hex = ''
         host_bytes = bytes.fromhex(host_hex)
         module_bytes = bytes.fromhex(module_hex)
         loop_bytes = bytes.fromhex(loop_hex)

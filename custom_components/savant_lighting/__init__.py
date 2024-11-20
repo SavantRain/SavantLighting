@@ -4,10 +4,10 @@ from .const import DOMAIN
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers.entity_platform import async_get_platforms
 from homeassistant.const import Platform
+from .tcp_manager import TCPConnectionManager
 
-
-PLATFORMS = [Platform.LIGHT, Platform.SWITCH]
-
+PLATFORMS = [Platform.LIGHT, Platform.SWITCH, Platform.CLIMATE]
+tcp_manager = None
 
 async def async_setup(hass: HomeAssistant, config: dict):
     """Set up the Savant Lighting component."""
@@ -29,7 +29,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Forward the setup to the correct platform (light and switch)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-
     return True
 
 async def async_update_config_entry(hass: HomeAssistant, entry_id: str, new_data: dict) -> None:

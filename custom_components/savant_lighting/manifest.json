@@ -8,5 +8,7 @@
   "config_flow": true,
   "codeowners": ["@laotycoon"],
   "iot_class": "local_push",
-  "translations": ["strings.json"]
+  "translations": ["strings.json"],
+  "integration_type": "hub",
+  "supported_platforms": ["light", "switch", "climate"]
 }

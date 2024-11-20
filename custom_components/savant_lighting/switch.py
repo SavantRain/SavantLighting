@@ -3,8 +3,10 @@ from datetime import timedelta
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+
+from . import tcp_manager
 from .const import DOMAIN
-from .send_command import send_tcp_command
+from .tcp_manager import TCPConnectionManager
 
 _LOGGER = logging.getLogger(__name__)
 SCAN_INTERVAL = timedelta(seconds=60)
@@ -38,7 +40,8 @@ class SavantSwitch(SwitchEntity):
         self._state = False
         self._last_known_state = None  # 用于存储最后已知状态
         self._is_online = True  # 在线状态初始化为
-
+        self.tcp_manager = TCPConnectionManager(host, port)
+        
     async def async_added_to_hass(self):
         """Callback when entity is added to hass."""
         _LOGGER.debug(f"{self.name} has been added to hass")
@@ -98,11 +101,13 @@ class SavantSwitch(SwitchEntity):
             
     async def _send_state_to_device(self, command):
         hex_command = self._command_to_hex(command)
-        response, is_online = await send_tcp_command(self._host, self._port, hex_command)
-
+        # response, is_online = await send_tcp_command(self._host, self._port, hex_command)
+        response, is_online = await self.tcp_manager.send_command(hex_command)
+        
     async def _get_state_from_device(self):
         hex_command = self._query_to_hex("get_state")
-        response, is_online = await send_tcp_command(self._host, self._port, hex_command)
+        # response, is_online = await send_tcp_command(self._host, self._port, hex_command)
+        response, is_online = await self.tcp_manager.send_command(hex_command)
         return response
 
     def _query_to_hex(self, command):
@@ -139,6 +144,7 @@ class SavantSwitch(SwitchEntity):
 
     def _parse_device_state(self, response):
         try:
+            print(response)
             if len(response) >= 12:
                 relay_state = response[8]
 
