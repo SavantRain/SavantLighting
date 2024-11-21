@@ -38,7 +38,6 @@ class SavantLight(LightEntity):
         self._loop_address = loop_address
         self._host = host
         self._port = port
-<<<<<<< HEAD
         self._sub_device_type = sub_device_type
         self._brightness = 255
         self._state = False
@@ -54,17 +53,6 @@ class SavantLight(LightEntity):
             self._supported_color_modes = {ColorMode.COLOR_TEMP, ColorMode.BRIGHTNESS}  # 支持HS颜色模式和亮度
         else:
             self._supported_color_modes = {ColorMode.BRIGHTNESS}  # 支持HS颜色模式和亮
-=======
-        self._supported_color_modes = {ColorMode.HS, ColorMode.BRIGHTNESS}  # 支持HS颜色模式和亮度
-        self._color_mode = ColorMode.HS
-        self._brightness = 50  # 修改亮度初始值为50，更符合0-100%范围
-        self._hs_color = (0, 0)
-        self._color_temp = 250
-        self._state = False
-        self._last_known_state = None  # 用于存储最后已知状态
-        self._is_online = True  
-        self._brightness_percentage = 50  # 添加亮度百分比属性并初始化为50
->>>>>>> aa81e5a (	modified:   custom_components/savant_lighting/light.py)
 
     async def async_added_to_hass(self):
         """Callback when entity is added to hass."""
@@ -122,7 +110,6 @@ class SavantLight(LightEntity):
     async def async_turn_on(self, **kwargs):
         """Turn on the light."""
         self._state = True
-<<<<<<< HEAD
         if self._sub_device_type == "rgb":
             if "brightness" in kwargs:
                 self._brightness = kwargs["brightness"]
@@ -142,20 +129,9 @@ class SavantLight(LightEntity):
             if "brightness" in kwargs:
                 self._brightness = kwargs["brightness"]
                 
-=======
-        if "brightness" in kwargs:
-            brightness_value = kwargs["brightness"]
-            self._brightness_percentage = int((brightness_value / 255) * 100)
-        if "color_temp" in kwargs:
-            self._color_temp = kwargs["color_temp"]
-        if "hs_color" in kwargs:
-            self._hs_color = kwargs["color_temp"]
-            self._color_mode = ColorMode.HS
-
->>>>>>> aa81e5a (	modified:   custom_components/savant_lighting/light.py)
         await self._send_state_to_device("on")
         self.async_write_ha_state()
-        
+
     async def async_turn_off(self, **kwargs):
         """Turn off the light."""
         self._state = False
@@ -167,11 +143,7 @@ class SavantLight(LightEntity):
         # 从实际设备获取新的状态数据
         # 例如，调用 REST API 端点或读取 MQTT 主题
         self._state = True  # 更新为实际状态
-<<<<<<< HEAD
         self._brightness = 255  # 更新为实际亮度
-=======
-        self._brightness = 100  # 更新为实际亮度
->>>>>>> aa81e5a (	modified:   custom_components/savant_lighting/light.py)
         self._hs_color = (0, 0)  # 更新为实际颜色
         
     async def async_update(self):
@@ -180,32 +152,15 @@ class SavantLight(LightEntity):
             if response is not None:
                 self._state = self._parse_device_state(response)
                 self._is_online = True
-<<<<<<< HEAD
                 self._brightness = 255  # 更新为实际亮度
                 self._hs_color = (0, 0)  # 更新为实际颜色
-=======
-                self._brightness = self._parse_brightness_from_response(response)  # 假设新增一个方法来解析亮度值
-                # 根据设备亮度值计算亮度百分比
-                self._brightness_percentage = int((self._brightness / 100) * 255)
-                self._hs_color = (0, 0)  
->>>>>>> aa81e5a (	modified:   custom_components/savant_lighting/light.py)
             else:
                 self._is_online = False
         except Exception:
             self._is_online = False  # 如果获取状态失败，则设备离线
             
-<<<<<<< HEAD
     async def _send_state_to_device(self, command):
         hex_command = self._command_to_hex(command)
-=======
-    def _parse_brightness_from_response(self, response):
-        # 假设设备返回的亮度值在响应数据的第10个字节开始，占2个字节
-        brightness_bytes = response[9:11]
-        return int.from_bytes(brightness_bytes, byteorder='big')
-            
-    async def _send_state_to_device(self, command):
-        hex_command = self._command_to_hex(command)  # 传入亮度值以便生成正确的命令
->>>>>>> aa81e5a (	modified:   custom_components/savant_lighting/light.py)
         response, is_online = await send_tcp_command(self._host, self._port, hex_command)
         
     async def _get_state_from_device(self):
@@ -224,18 +179,13 @@ class SavantLight(LightEntity):
         command = host_bytes + module_bytes + command_bytes
         return command
 
-<<<<<<< HEAD
     def _command_to_hex(self, command):
-=======
-    def _command_to_hex(self, command, brightness=None):
->>>>>>> aa81e5a (	modified:   custom_components/savant_lighting/light.py)
         """将'开'和'关'的命令转换为十六进制格式"""
         #指令第二个字节为IP的最后一位，如192.168.1.230，将230转化为十六进制E6在指令中进行传输
         #最后一个字节AC为校验位，校验方式：和校验
         host_hex = f"AC{int(self._host.split('.')[-1]):02X}0010"
         module_hex = f"{int(self._module_address):02X}"
         loop_hex = f"{int(self._loop_address):02X}"
-<<<<<<< HEAD
         
         # 处理RGB灯光的开关操作
         if self._sub_device_type == "rgb":
@@ -261,15 +211,6 @@ class SavantLight(LightEntity):
                 command_hex = '000400000000CA'
             else:
                 command_hex = ''
-=======
-        if command == "on":
-            brightness_hex = f"{int(self._brightness_percentage):02X}" if self._brightness_percentage is not None else '00'
-            command_hex = f'0004{brightness_hex}000000CA'
-        elif command == "off":
-            command_hex = '000400000000CA'
-        else:
-            command_hex = ''
->>>>>>> aa81e5a (	modified:   custom_components/savant_lighting/light.py)
         host_bytes = bytes.fromhex(host_hex)
         module_bytes = bytes.fromhex(module_hex)
         loop_bytes = bytes.fromhex(loop_hex)
