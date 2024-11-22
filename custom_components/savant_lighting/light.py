@@ -48,7 +48,10 @@ class SavantLight(LightEntity):
             self._color_mode = ColorMode.HS
             self._hs_color = (0, 0)
             self._supported_color_modes = {ColorMode.HS, ColorMode.COLOR_TEMP, ColorMode.BRIGHTNESS}  # 支持HS颜色模式和亮度
-        elif self._sub_device_type == "cw":
+        elif self._sub_device_type == "DALI-01":
+            self._color_temp = 250
+            self._supported_color_modes = {ColorMode.COLOR_TEMP, ColorMode.BRIGHTNESS}  # 支持HS颜色模式和亮度
+        elif self._sub_device_type == "DALI-02":
             self._color_temp = 250
             self._supported_color_modes = {ColorMode.COLOR_TEMP, ColorMode.BRIGHTNESS}  # 支持HS颜色模式和亮度
         else:
@@ -110,25 +113,17 @@ class SavantLight(LightEntity):
     async def async_turn_on(self, **kwargs):
         """Turn on the light."""
         self._state = True
-        if self._sub_device_type == "rgb":
-            if "brightness" in kwargs:
-                self._brightness = kwargs["brightness"]
-            if "color_temp" in kwargs:
-                self._color_temp = kwargs["color_temp"]
-                self._color_mode = ColorMode.COLOR_TEMP
-            if "hs_color" in kwargs:
-                self._hs_color = kwargs["hs_color"]
-                self._color_mode = ColorMode.HS
-        elif self._sub_device_type == "cw":
-            if "brightness" in kwargs:
-                self._brightness = kwargs["brightness"]
-            if "color_temp" in kwargs:
-                self._color_temp = kwargs["color_temp"]
-                self._color_mode = ColorMode.COLOR_TEMP
-        else:
-            if "brightness" in kwargs:
-                self._brightness = kwargs["brightness"]
-                
+        if "brightness" in kwargs:
+            self._brightness = kwargs["brightness"]
+            await self._send_state_to_device("brightness")
+        if "color_temp" in kwargs:
+            self._color_temp = kwargs["color_temp"]
+            self._color_mode = ColorMode.COLOR_TEMP
+            await self._send_state_to_device("color_temp")
+        if "hs_color" in kwargs:
+            self._hs_color = kwargs["hs_color"]
+            self._color_mode = ColorMode.HS
+            await self._send_state_to_device("hs_color")
         await self._send_state_to_device("on")
         self.async_write_ha_state()
 
@@ -138,14 +133,6 @@ class SavantLight(LightEntity):
         await self._send_state_to_device("off")
         self.async_write_ha_state()
 
-    async def async_update(self):
-        """Fetch new state data for this light."""
-        # 从实际设备获取新的状态数据
-        # 例如，调用 REST API 端点或读取 MQTT 主题
-        self._state = True  # 更新为实际状态
-        self._brightness = 255  # 更新为实际亮度
-        self._hs_color = (0, 0)  # 更新为实际颜色
-        
     async def async_update(self):
         try:
             response = await self._get_state_from_device()
@@ -196,11 +183,26 @@ class SavantLight(LightEntity):
             else:
                 command_hex = ''
         # 处理双色温灯光的开关操作
-        elif self._sub_device_type == "cw":
+        elif self._sub_device_type == "DALI-01":
             if command == "on":
                 command_hex = '000401000000CA'
             elif command == "off":
                 command_hex = '000400000000CA'
+            elif command == "brightness":
+                command_hex = '######################'
+            elif command == "color_temp":
+                command_hex = '######################'
+            else:
+                command_hex = ''
+        elif self._sub_device_type == "DALI-02":
+            if command == "on":
+                command_hex = '000401000000CA'
+            elif command == "off":
+                command_hex = '000400000000CA'
+            elif command == "brightness":
+                command_hex = '######################'
+            elif command == "color_temp":
+                command_hex = '######################'
             else:
                 command_hex = ''
         # 处理单色温灯光的开关操作
@@ -209,6 +211,12 @@ class SavantLight(LightEntity):
                 command_hex = '000401000000CA'
             elif command == "off":
                 command_hex = '000400000000CA'
+            elif command == "brightness":
+                command_hex = '######################'
+            elif command == "color_temp":
+                command_hex = '######################'
+            elif command == "hs_color":
+                command_hex = '######################'
             else:
                 command_hex = ''
         host_bytes = bytes.fromhex(host_hex)
