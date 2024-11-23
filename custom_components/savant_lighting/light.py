@@ -31,7 +31,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 class SavantLight(LightEntity):
     """Representation of a Savant Light."""
 
-    def __init__(self, name, module_address, loop_address, host, port, sub_device_type, min_mireds,max_mireds):
+    def __init__(self, name, module_address, loop_address, host, port, sub_device_type):
         """Initialize the Savant Light."""
         self._attr_name = name
         self._module_address = module_address
@@ -50,11 +50,13 @@ class SavantLight(LightEntity):
             self._supported_color_modes = {ColorMode.HS, ColorMode.COLOR_TEMP, ColorMode.BRIGHTNESS}  # 支持HS颜色模式和亮度
         elif self._sub_device_type == "DALI-01":
             self._color_temp = 370
-            self._min_mireds = min_mireds
-            self._max_mireds = max_mireds
+            self._min_mireds = 153
+            self._max_mireds = 666
             self._supported_color_modes = {ColorMode.COLOR_TEMP, ColorMode.BRIGHTNESS}  # 支持HS颜色模式和亮度
         elif self._sub_device_type == "DALI-02":
-            self._color_temp = 2500
+            self._color_temp = 370
+            self._min_mireds = 153
+            self._max_mireds = 666
             self._supported_color_modes = {ColorMode.COLOR_TEMP, ColorMode.BRIGHTNESS}  # 支持HS颜色模式和亮度
         else:
             self._supported_color_modes = {ColorMode.BRIGHTNESS}  # 支持HS颜色模式和亮
@@ -91,9 +93,11 @@ class SavantLight(LightEntity):
         """Return the color temperature."""
         return self._color_temp
 
+    @property
     def min_mireds(self):
         return self._min_mireds
     
+    @property
     def max_mireds(self):
         return self._max_mireds
 
@@ -125,10 +129,8 @@ class SavantLight(LightEntity):
             brightness_value = kwargs["brightness"]
             self._brightness_percentage = int((brightness_value / 255) * 100)
             await self._send_state_to_device("brightness")
-        if "color_temp" in kwargs:
-#            color_temp_value = kwargs["color_temp"]
-            color_temp_value = max(self._min_mireds, min(self._max_mireds, color_temp_value))
-            self._color_temp_percentage = int(color_temp_value * 1)
+        if "color_temp_kelvin" in kwargs:
+            self.color_temp_kelvin_value = str(kwargs['color_temp_kelvin'])[:2]
             self._color_mode = ColorMode.COLOR_TEMP
             await self._send_state_to_device("color_temp")
         if "hs_color" in kwargs:
@@ -203,7 +205,7 @@ class SavantLight(LightEntity):
                 brightness_hex = f"{int(self._brightness_percentage):02X}" if self._brightness_percentage is not None else '00'
                 command_hex = f'0004{brightness_hex}000000CA'
             elif command == "color_temp":
-                color_temp_hex = f"{int(self._color_temp_percentage):02X}" if self._color_temp_percentage is not None else '00'
+                color_temp_hex = f"{int(self.color_temp_kelvin_value):02X}" if self.color_temp_kelvin_value is not None else '00'
                 command_hex = f'0004{color_temp_hex}000000CA'
             else:
                 command_hex = ''
