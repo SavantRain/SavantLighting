@@ -45,18 +45,20 @@ class SavantLight(LightEntity):
         self._is_online = True  # 在线状态初始化为
         if self._sub_device_type == "rgb":
             self._color_temp = 370
+            self._min_mireds = 152
+            self._max_mireds = 667
             self._color_mode = ColorMode.HS
             self._hs_color = (0, 0)
             self._supported_color_modes = {ColorMode.HS, ColorMode.COLOR_TEMP, ColorMode.BRIGHTNESS}  # 支持HS颜色模式和亮度
         elif self._sub_device_type == "DALI-01":
             self._color_temp = 370
-            self._min_mireds = 153
-            self._max_mireds = 666
+            self._min_mireds = 152
+            self._max_mireds = 667
             self._supported_color_modes = {ColorMode.COLOR_TEMP, ColorMode.BRIGHTNESS}  # 支持HS颜色模式和亮度
         elif self._sub_device_type == "DALI-02":
             self._color_temp = 370
-            self._min_mireds = 153
-            self._max_mireds = 666
+            self._min_mireds = 152
+            self._max_mireds = 667
             self._supported_color_modes = {ColorMode.COLOR_TEMP, ColorMode.BRIGHTNESS}  # 支持HS颜色模式和亮度
         else:
             self._supported_color_modes = {ColorMode.BRIGHTNESS}  # 支持HS颜色模式和亮
