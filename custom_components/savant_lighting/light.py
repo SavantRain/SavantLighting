@@ -198,9 +198,9 @@ class SavantLight(LightEntity):
         # 处理双色温灯光的开关操作
         elif self._sub_device_type == "DALI-01":
             if command == "on":
-                command_hex = f'{loop_hex}000401000000CA'   #状态开启
+                command_hex = f'{loop_hex}000401000001CA'   #状态开启
             elif command == "off":
-                command_hex = f'{loop_hex}000400000000CA'   #状态关闭
+                command_hex = f'{loop_hex}000400000001CA'   #状态关闭
             elif command == "brightness":
                 brightness_hex = f"{int(self._brightness_percentage):02X}" if self._brightness_percentage is not None else '00'
                 command_hex = f'{loop_hex}0004{brightness_hex}000010CA'
@@ -217,29 +217,26 @@ class SavantLight(LightEntity):
                 command_hex = ''
         elif self._sub_device_type == "DALI-02":
             if command == "on":
-                command_hex = f'{loop_hex}000401000000CA'   #状态开启
+                command_hex = f'{loop_hex}000401000001CA'   #状态开启
             elif command == "off":
-                command_hex = f'{loop_hex}000400000000CA'   #状态关闭
+                command_hex = f'{loop_hex}000400000001CA'   #状态关闭
             elif command == "brightness":
                 brightness_hex = f"{int(self._brightness_percentage):02X}" if self._brightness_percentage is not None else '00'
-                command_hex = f'0004{brightness_hex}000000CA'
+                command_hex = f'{loop_hex}0004{brightness_hex}00FF10CA'
             elif command == "color_temp":
-                command_hex = '######################'
+                color_temp_hex = f"{int(self.color_temp_kelvin_value):02X}" if self.color_temp_kelvin_value is not None else '00'
+                command_hex = f'{loop_hex}0004FF00{color_temp_hex}10CA'
             else:
                 command_hex = ''
         # 处理单色温灯光的开关操作
         else:
             if command == "on":
-                command_hex = f'{loop_hex}000401000000CA'   #状态开启
+                command_hex = f'{loop_hex}000401000001CA'   #状态开启
             elif command == "off":
-                command_hex = f'{loop_hex}000400000000CA'   #状态关闭
+                command_hex = f'{loop_hex}000400000001CA'   #状态关闭
             elif command == "brightness":
                 brightness_hex = f"{int(self._brightness_percentage):02X}" if self._brightness_percentage is not None else '00'
-                command_hex = f'{loop_hex}0004{brightness_hex}000000CA'
-            elif command == "color_temp":
-                command_hex = '######################'
-            elif command == "hs_color":
-                command_hex = '######################'
+                command_hex = f'{loop_hex}0004{brightness_hex}000010CA'
             else:
                 command_hex = ''
         host_bytes = bytes.fromhex(host_hex)
@@ -251,33 +248,22 @@ class SavantLight(LightEntity):
 
     def _parse_device_state(self, response):
         try:
+            #亮度回复   AC E6 00 11 02 01 00 04 64 00 00 11（DALI01亮度标识符） CA
+            #色温回复   AC E6 00 11 02 02 00 04 41 00 00 12（DALI01色温标识符） CA
+            print(response)
             if len(response) >= 12:
-                state_9 = response[9]       #数据 
-                byte_11 = response[11]      #类型    0X11为DALI01亮度     0X12为DALI01色温
+                loop_hex = f"{int(self._loop_address):02X}"
+                modubleID =response[5]      #通道地址
+                device_value = response[9]       #数据    
+                device_type = response[11]  #类型    0X11为DALI01亮度     0X12为DALI01色温
 
-                if byte_11 == 11:
-                    if state_9 == 0x01:
-                        _LOGGER.info("设备已开启，亮度字节值：{state_9}")
-                        return True
-                    elif state_9 == 0x00:
-                        _LOGGER.info("设备已关闭，亮度字节值：{state_9}")
-                        return False
-                    else:
-                        _LOGGER.warning("无法解析DALI状态：{byte_11}")
-                        return None
-                elif byte_11 == 12:
-                    if state_9 == 0x01:
-                        _LOGGER.info("设备已开启，色温字节值：{state_9}")
-                        return True
-                    elif state_9 == 0x00:
-                        _LOGGER.info("设备已关闭，色温字节值：{state_9}")
-                        return False
-                    else:
-                        _LOGGER.warning("无法解析DALI状态：{state_9}")
-                        return None
-                else:
-                    _LOGGER.warning("第12个字节数值不符合预期，实际值：{byte_11}")
-                    return None
+                if device_type == 'DALI01':
+                    if device_type == 12:
+                        device_value = 45
+                        self._color_temp = 1000000/(device_value*100)
+                    elif device_type == 11:
+                        self._brightness = device_value * 255 / 100
+                return True
             else:
                 _LOGGER.error("无效的设备回复长度：{len(response)}")
                 return None

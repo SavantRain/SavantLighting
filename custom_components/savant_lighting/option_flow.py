@@ -49,8 +49,8 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
                 "switch_menu": "管理继电器",
                 "light_menu": "管理【单色温】灯光",
                 "light_dali_001_menu": "管理【双色温DALI-01】灯光",
-                "light_dali_002_menu": "管理【双色温DALI-01】灯光",
-                "light_rgb_menu": "管理【彩灯】灯光",
+                "light_dali_002_menu": "管理【双色温DALI-02】灯光",
+                "light_rgb_menu": "管理【DALI-RGB】灯光",
                 "climate_menu": "管理空调"
             },
             description_placeholders={"desc": "选择操作来管理子设备"},
