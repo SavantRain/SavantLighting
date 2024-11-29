@@ -252,7 +252,7 @@ class SavantLight(LightEntity):
             #色温回复   AC E6 00 11 02 02 00 04 41 00 00 12（DALI01色温标识符） CA
             print(response)
             if len(response) >= 12:
-                loop_hex = f"{int(self._loop_address):02X}"
+                loop_hex = f"{int(self._loop_address):02X}"                                      
                 modubleID =response[5]      #通道地址
                 device_value = response[9]       #数据    
                 device_type = response[11]  #类型    0X11为DALI01亮度     0X12为DALI01色温

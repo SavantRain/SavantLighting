@@ -117,11 +117,25 @@ class SavantClimate(ClimateEntity):
             "model": "Climate Model",
         }
         
+    # async def async_set_hvac_mode(self, hvac_mode):
+    #     """Set the HVAC mode."""
+    #     if hvac_mode in SUPPORTED_HVAC_MODES:
+    #         self._state = hvac_mode
+    #         await self._send_state_to_device(hvac_mode)
+    #         self.async_write_ha_state()
+
     async def async_set_hvac_mode(self, hvac_mode):
         """Set the HVAC mode."""
         if hvac_mode in SUPPORTED_HVAC_MODES:
             self._state = hvac_mode
-            await self._send_state_to_device(hvac_mode)
+            hex_command = self._command_to_hex(hvac_mode)
+            if isinstance(hex_command, tuple):
+                # 如果是两条指令，依次发送
+                response_1, is_online_1 = await self.tcp_manager.send_command(hex_command[0])
+                response_2, is_online_2 = await self.tcp_manager.send_command(hex_command[1])
+                # 这里可以根据实际需求对两次响应进行处理，比如检查是否都成功等
+            else:
+                response, is_online = await self.tcp_manager.send_command(hex_command)
             self.async_write_ha_state()
 
     async def async_set_fan_mode(self, fan_mode):
@@ -160,16 +174,136 @@ class SavantClimate(ClimateEntity):
         return response
 
     def _command_to_hex(self, command):
-        """Convert a command to its hexadecimal representation."""
-        # Similar to switch, implement the command-to-hex logic here.
-        pass
+        """将'开'和'关'的命令转换为十六进制格式"""
+        #指令第二个字节为IP的最后一位，如192.168.1.230，将230转化为十六进制E6在指令中进行传输
+        host_hex = f"AC{int(self._host.split('.')[-1]):02X}0010"
+        module_hex = f"{int(self._module_address):02X}"
+        loop_hex = f"{int(self._loop_address):02X}"
+        loop_hex_value = int(loop_hex, 16)
+        
+        #空调地址为32-47转化为1-16
 
-    def _query_to_hex(self, command):
-        """Convert a query to its hexadecimal representation."""
-        # Implement the query-to-hex logic here.
-        pass
+        if command == HVAC_MODE_OFF:
+            loop_hex_modeaddress = loop_hex_value * 9 - 287
+            loop_hex_original = f"{loop_hex_modeaddress:02X}"
+            command_hex = f"{loop_hex_original}000400002020CA"
+        elif command == HVAC_MODE_COOL:
+            #开机模式控制需要连续发送两条指令
+            # 第一条指令用于空调开机
+            loop_hex_modeaddress = loop_hex_value * 9 - 287
+            loop_hex_original = f"{loop_hex_modeaddress:02X}"
+            command_hex_1 = f"{loop_hex_original}000401002020CA"
+            # 第二条指令用于开启制冷
+            loop_hex_modeaddress = loop_hex_value * 9 - 286
+            loop_hex_original = f"{loop_hex_modeaddress:02X}"
+            command_hex_2 = f"{loop_hex_original}000401002020CA"
+            return command_hex_1, command_hex_2
+        elif command == HVAC_MODE_HEAT:
+            # 第一条指令用于空调开机
+            loop_hex_modeaddress = loop_hex_value * 9 - 287
+            loop_hex_original = f"{loop_hex_modeaddress:02X}"
+            command_hex_1 = f"{loop_hex_original}000401002020CA"
+            # 第二条指令用于开启制热
+            loop_hex_modeaddress = loop_hex_value * 9 - 286
+            loop_hex_original = f"{loop_hex_modeaddress:02X}"
+            command_hex_2 = f"{loop_hex_original}000408002020CA"
+            return command_hex_1, command_hex_2
+        elif command == HVAC_MODE_AUTO:
+            # 第一条指令用于空调开机
+            loop_hex_modeaddress = loop_hex_value * 9 - 287
+            loop_hex_original = f"{loop_hex_modeaddress:02X}"
+            command_hex_1 = f"{loop_hex_original}000401002020CA"
+            # 第二条指令用于开启通风
+            loop_hex_modeaddress = loop_hex_value * 9 - 286
+            loop_hex_original = f"{loop_hex_modeaddress:02X}"
+            command_hex_2 = f"{loop_hex_original}000404002020CA"
+            return command_hex_1, command_hex_2
+        elif command.startswith("temp:"):
+            #温度下发指令范围16-35°
+            temperature_str = command.split(":")[1]
+            temperature_hex = f"{int(float(temperature_str)):02X}"
+            loop_hex_modeaddress = loop_hex_value * 9 - 284
+            loop_hex_original = f"{loop_hex_modeaddress:02X}"
+            command_hex = f"{loop_hex_original}0004{temperature_hex}002020CA"
+        elif command == "low":
+            loop_hex_modeaddress = loop_hex_value * 9 - 285
+            loop_hex_original = f"{loop_hex_modeaddress:02X}"
+            command_hex = f"{loop_hex_original}000404002020CA"
+        elif command == "medium":
+            loop_hex_modeaddress = loop_hex_value * 9 - 285
+            loop_hex_original = f"{loop_hex_modeaddress:02X}"
+            command_hex = f"{loop_hex}000402002020CA"
+        elif command == "high":
+            loop_hex_modeaddress = loop_hex_value * 9 - 285
+            loop_hex_original = f"{loop_hex_modeaddress:02X}"
+            command_hex = f"{loop_hex}000401002020CA"
+        elif command == "auto":
+            loop_hex_modeaddress = loop_hex_value * 9 - 285
+            loop_hex_original = f"{loop_hex_modeaddress:02X}"
+            command_hex = f"{loop_hex}000400002020CA"
+        else:
+            command_hex = ""
+
+        if isinstance(command_hex, tuple):
+            host_bytes_1 = bytes.fromhex(host_hex)
+            module_bytes_1 = bytes.fromhex(module_hex)
+            command_bytes_1 = bytes.fromhex(command_hex[0])
+            command_1 = host_bytes_1 + module_bytes_1 + command_bytes_1
+
+            host_bytes_2 = bytes.fromhex(host_hex)
+            module_bytes_2 = bytes.fromhex(module_hex)
+            command_bytes_2 = bytes.fromhex(command_hex[1])
+            command_2 = host_bytes_2 + module_bytes_2 + command_bytes_2
+
+            return command_1, command_2
+        else:
+            host_bytes = bytes.fromhex(host_hex)
+            module_bytes = bytes.fromhex(module_hex)
+            command_bytes = bytes.fromhex(command_hex)
+            command = host_bytes + module_bytes + command_bytes
+
+            return command
+
+    # def _query_to_hex(self, command):
+    #     """Convert a query to its hexadecimal representation."""
+    #     host_hex = f"{int(self._host.split('.')[-1]):02X}"
+    #     module_hex = f"{int(self._module_address):02X}"
+    #     command_hex = '01000108CA'
+
+    #     host_bytes = bytes.fromhex(host_hex)
+    #     module_bytes = bytes.fromhex(module_hex)
+    #     command_bytes = bytes.fromhex(command_hex)
+    #     query_command = host_bytes + module_bytes + command_bytes
+
+    #     return query_command
 
     def _parse_device_state(self, response):
         """Parse the state from the device's response."""
-        # Extract and update temperature, hvac_mode, and fan_mode based on the response.
-        pass
+        if len(response) >= 12:
+            loop_hex = f"{int(self._loop_address):02X}"
+            mode_indicator = response[5]
+            temperature_indicator = response[7]
+            fan_mode_indicator = response[9]
+
+            if mode_indicator == 0x01:
+                self._state = HVAC_MODE_OFF
+            elif mode_indicator == 0x02:
+                self._state = HVAC_MODE_COOL
+            elif mode_indicator == 0x03:
+                self._state = HVAC_MODE_HEAT
+            elif mode_indicator == 0x03:
+                self._state = HVAC_MODE_AUTO
+
+            self._current_temperature = float(int(temperature_indicator, 16) / 10)
+
+            if fan_mode_indicator == 0x01:
+                self._fan_mode = "low"
+            elif fan_mode_indicator == 0x02:
+                self._fan_mode = "medium"
+            elif fan_mode_indicator == 0x03:
+             self._fan_mode = "high"
+            elif fan_mode_indicator == 0x04:
+                self._fan_mode = "auto"
+
+        else:
+            _LOGGER.error("Invalid device response length: {len(response)}")
