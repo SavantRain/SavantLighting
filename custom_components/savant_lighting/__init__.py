@@ -21,12 +21,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.data[DOMAIN] = {}
 
     # 保存配置信息
+    tcp_manager = TCPConnectionManager(entry.data.get("host"), entry.data.get("port"), None)
+    await tcp_manager.connect()
     hass.data[DOMAIN][entry.entry_id] = {
         "host": entry.data.get("host"),
         "port": entry.data.get("port"),
+        "tcp_manager": tcp_manager,
         "devices": entry.data.get("devices", []), 
     }
-
+        
     # Forward the setup to the correct platform (light and switch)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True

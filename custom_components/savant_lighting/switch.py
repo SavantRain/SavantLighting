@@ -3,18 +3,17 @@ from datetime import timedelta
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-
-from . import tcp_manager
+from .tcp_manager import *
 from .const import DOMAIN
-from .tcp_manager import TCPConnectionManager
+from .command_helper import SwitchCommand
 
 _LOGGER = logging.getLogger(__name__)
 SCAN_INTERVAL = timedelta(seconds=60)
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
     """Set up Savant Light entities from a config entry."""
-    config = hass.data[DOMAIN].get(entry.entry_id, {}).get("devices", [])
-    
+    config = hass.data[DOMAIN].get(entry.entry_id, {})
+    devices = config.get("devices", [])
     switchs = [
         SavantSwitch(
             name=device["name"],
@@ -22,15 +21,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             loop_address=device["loop_address"],
             host=device["host"],
             port=device["port"],
+            tcp_manager=config["tcp_manager"]
         )
-        for device in config if device["type"] == "switch"
+        for device in devices if device["type"] == "switch"
     ]
     async_add_entities(switchs, update_before_add=True)
 
 class SavantSwitch(SwitchEntity):
     """Representation of a Savant Switch."""
 
-    def __init__(self, name, module_address, loop_address, host, port):
+    def __init__(self, name, module_address, loop_address, host, port, tcp_manager):
         """Initialize the switch."""
         self._attr_name = name
         self._module_address = module_address
@@ -40,11 +40,12 @@ class SavantSwitch(SwitchEntity):
         self._state = False
         self._last_known_state = None  # 用于存储最后已知状态
         self._is_online = True  # 在线状态初始化为
-        self.tcp_manager = TCPConnectionManager(host, port)
+        self.tcp_manager = tcp_manager
+        self.tcp_manager.state_update_callback = self.update_state
+        self.command = SwitchCommand(host,module_address,loop_address)
         
     async def async_added_to_hass(self):
         """Callback when entity is added to hass."""
-        _LOGGER.debug(f"{self.name} has been added to hass")
         # 延迟更新设备状态，以避免阻塞 setup
         self.hass.async_create_task(self.async_update())
         self.async_write_ha_state()
@@ -74,84 +75,27 @@ class SavantSwitch(SwitchEntity):
         """Return True if the device is available (online)."""
         self._is_online = True
         return self._is_online
-    
+
     async def async_turn_on(self, **kwargs):
-        """Turn the switch on."""
         self._state = True
-        await self._send_state_to_device("on")
-        self.async_write_ha_state()
+        await self.tcp_manager.send_command(self.command.turnonoff("on"))
 
     async def async_turn_off(self, **kwargs):
-        """Turn the switch off."""
-        self._state = False
-        await self._send_state_to_device("off")
+        self._state = True
+        await self.tcp_manager.send_command(self.command.turnonoff("off"))
+        
+    async def async_update(self):
+        self._state = True
+        # await self.tcp_manager.send_command(self.command.query_state())
+        # 此代码如果不注释，会在每次执行操作后，进行状态查询。
+        
+    def update_state(self, response):
+        print('开关收到状态响应: ' + str(response).replace('\\x', ''))
+        self._state = self._parse_device_state(response)
         self.async_write_ha_state()
     
-    async def async_update(self):
-        """Fetch new state data for this switch."""
-        try:
-            response = await self._get_state_from_device()
-            if response is not None:
-                self._state = self._parse_device_state(response)
-                self._is_online = True
-            else:
-                self._is_online = False
-        except Exception:
-            self._is_online = False  # 如果获取状态失败，则设备离线
-            
-    async def _send_state_to_device(self, command):
-        hex_command = self._command_to_hex(command)
-        # response, is_online = await send_tcp_command(self._host, self._port, hex_command)
-        response, is_online = await self.tcp_manager.send_command(hex_command)
-        
-    async def _get_state_from_device(self):
-        hex_command = self._query_to_hex("get_state")
-        # response, is_online = await send_tcp_command(self._host, self._port, hex_command)
-        response, is_online = await self.tcp_manager.send_command(hex_command)
-        return response
-
-    def _query_to_hex(self, command):
-        #查询指令
-        host_hex = f"AC{int(self._host.split('.')[-1]):02X}"
-        module_hex = f"00B0{int(self._module_address):02X}"
-        command_hex = '01000108CA'
-        host_bytes = bytes.fromhex(host_hex)
-        module_bytes = bytes.fromhex(module_hex)
-        command_bytes = bytes.fromhex(command_hex)
-        command = host_bytes + module_bytes + command_bytes
-        return command
-    # 继电器查询
-    # 发→◇AC E6 00 B0 0C 01 00 01 08 CA □
-    #                   0C查询地址
-    # 收←◆AC E6 00 B1 0C 01 00 20（数据长度） 01 00 00 00（回路1状态） 00 00 00 00（回路2状态） 01 00 00 00（回路3状态） 
-    # 00 00 00 00（回路4状态） 01 00 00 00（回路5状态） 00 00 00 00（回路6状态） 01 00 00 00（回路7状态） 01 00 00 00（回路8状态） 75 （和校验位）
-    
-    
-
-    def _command_to_hex(self, command):
-        """将'开'和'关'的命令转换为十六进制格式"""
-        #指令第二个字节为IP的最后一位，如192.168.1.230，将230转化为十六进制E6在指令中进行传输
-        #最后一个字节AC为校验位，校验方式：和校验
-        host_hex = f"AC{int(self._host.split('.')[-1]):02X}0010"
-        module_hex = f"{int(self._module_address):02X}"
-        loop_hex = f"{int(self._loop_address):02X}"
-        if command == "on":
-            command_hex = '000401000000CA'
-        elif command == "off":
-            command_hex = '000400000000CA'
-        else:
-            command_hex = ''
-        host_bytes = bytes.fromhex(host_hex)
-        module_bytes = bytes.fromhex(module_hex)
-        loop_bytes = bytes.fromhex(loop_hex)
-        command_bytes = bytes.fromhex(command_hex)
-        command = host_bytes + module_bytes + loop_bytes + command_bytes
-        print(command)
-        return command
-
     def _parse_device_state(self, response):
         try:
-            print(response)
             if len(response) >= 12:
                 relay_state = response[8]
 
