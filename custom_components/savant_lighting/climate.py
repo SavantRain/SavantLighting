@@ -181,7 +181,7 @@ class SavantClimate(ClimateEntity):
         loop_hex = f"{int(self._loop_address):02X}"
         loop_hex_value = int(loop_hex, 16)
         
-        #空调地址为32-47转化为1-16
+        #空调地址为32-47
 
         if command == HVAC_MODE_OFF:
             loop_hex_modeaddress = loop_hex_value * 9 - 287
