@@ -180,6 +180,11 @@ class SavantLight(LightEntity):
     #     command_bytes = bytes.fromhex(command_hex)
     #     command = host_bytes + module_bytes + command_bytes
     #     return command
+        # 调光查询
+    # 发→◇AC E6 00 B0 0C 01 00 01 08 CA □
+    #                   0C查询地址
+    # 收←◆AC E6（网关IP最后一位） 00 B1 0C（继电器模块地址） 01 00 20（数据长度） 01 00 00 00（回路1状态） 00 00 00 00（回路2状态） 01 00 00 00（回路3状态） 
+    # 00 00 00 00（回路4状态） 01 00 00 00（回路5状态） 00 00 00 00（回路6状态） 01 00 00 00（回路7状态） 01 00 00 00（回路8状态） 75 （和校验位）
 
     def _command_to_hex(self, command):
         """将'开'和'关'的命令转换为十六进制格式"""
@@ -252,7 +257,7 @@ class SavantLight(LightEntity):
             #色温回复   AC E6 00 11 02 02 00 04 41 00 00 12（DALI01色温标识符） CA
             print(response)
             if len(response) >= 12:
-                loop_hex = f"{int(self._loop_address):02X}"                                      
+                loop_hex = f"{int(self._loop_address):02X}"
                 modubleID =response[5]      #通道地址
                 device_value = response[9]       #数据    
                 device_type = response[11]  #类型    0X11为DALI01亮度     0X12为DALI01色温
