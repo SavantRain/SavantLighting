@@ -134,6 +134,8 @@ class SavantLight(LightEntity):
             brightness_value = kwargs["brightness"]
             self._brightness_percentage = int((brightness_value / 255) * 100)
             match self._sub_device_type:
+                case "0603D": 
+                    hex_command = self.command.brightness(self._brightness_percentage)
                 case "rgb": 
                     hex_command = self.command.brightness(self._brightness_percentage)
                 case "DALI-01": 

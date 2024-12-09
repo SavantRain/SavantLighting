@@ -25,6 +25,9 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
             if user_input == "light_menu":
                 self.device_type = "light"
                 return await self.async_step_light_menu()
+            elif user_input == "light_006_menu":
+                self.device_type = "light"
+                return await self.async_step_light_006_menu()
             elif user_input == "light_dali_001_menu":
                 self.device_type = "light"
                 return await self.async_step_light_dali_001_menu()
@@ -47,6 +50,7 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
             step_id="init",
             menu_options={
                 "switch_menu": "管理继电器",
+                "light_006_menu": "管理六路调光",
                 "light_menu": "管理【单色温】灯光",
                 "light_dali_001_menu": "管理【双色温DALI-01】灯光",
                 "light_dali_002_menu": "管理【双色温DALI-02】灯光",
@@ -58,6 +62,9 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
         
     async def async_step_light_menu(self, user_input=None):
         return await self.async_step_device_menu(device_type="light",user_input=user_input)
+    
+    async def async_step_light_006_menu(self, user_input=None):
+        return await self.async_step_device_menu(device_type="light",user_input=user_input, sub_device_type="0603D")
 
     async def async_step_light_rgb_menu(self, user_input=None):
         return await self.async_step_device_menu(device_type="light",user_input=user_input, sub_device_type="rgb")
