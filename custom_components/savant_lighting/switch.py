@@ -105,6 +105,7 @@ class SavantSwitch(SwitchEntity):
                     return False
                 else:
                     _LOGGER.warning("无法解析继电器状态：{relay_state}")
+                    #转
             else:
                 _LOGGER.error("无效的设备回复长度：{len(response)}")
         except Exception as e:

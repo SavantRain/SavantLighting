@@ -56,6 +56,8 @@ class SavantLight(LightEntity):
             self._color_mode = ColorMode.HS
             self._hs_color = (0, 0)
             self._supported_color_modes = {ColorMode.HS, ColorMode.COLOR_TEMP, ColorMode.BRIGHTNESS}  # 支持HS颜色模式和亮度
+        elif self._sub_device_type == "0603D":
+            self._supported_color_modes = {ColorMode.BRIGHTNESS}
         elif self._sub_device_type == "DALI-01":
             self._color_temp = 370
             self._min_mireds = 152
