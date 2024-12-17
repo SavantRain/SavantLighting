@@ -41,7 +41,7 @@ class SavantSwitch(SwitchEntity):
         self._last_known_state = None  # 用于存储最后已知状态
         self._is_online = True  # 在线状态初始化为
         self.tcp_manager = tcp_manager
-        self.tcp_manager.state_update_callback = self.update_state
+        self.tcp_manager.register_callback("switch", self.update_state)
         self.command = SwitchCommand(host,module_address,loop_address)
         
     async def async_added_to_hass(self):
@@ -83,13 +83,20 @@ class SavantSwitch(SwitchEntity):
     async def async_turn_off(self, **kwargs):
         self._state = True
         await self.tcp_manager.send_command(self.command.turnonoff("off"))
-        
+    
+    def _register_callback(self):
+        """返回处理自己的状态更新回调"""
+        def callback(response, device_type):
+            if device_type == self.device_type:
+                self.update_state(response)
+        return callback
+    
     async def async_update(self):
         self._state = True
         # await self.tcp_manager.send_command(self.command.query_state())
         # 此代码如果不注释，会在每次执行操作后，进行状态查询。
-        
-    def update_state(self, response):
+
+    def update_state(self, response, device_type, sub_device_type):
         print('开关收到状态响应: ' + str(response).replace('\\x', ''))
         self._state = self._parse_device_state(response)
         self.async_write_ha_state()

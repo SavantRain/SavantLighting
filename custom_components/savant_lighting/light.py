@@ -47,7 +47,7 @@ class SavantLight(LightEntity):
         self._last_known_state = None
         self._is_online = True
         self.tcp_manager = tcp_manager
-        self.tcp_manager.state_update_callback = self.update_state
+        self.tcp_manager.register_callback("light", self.update_state)
         self.command = LightCommand(host,module_address,loop_address)
         if self._sub_device_type == "rgb":
             self._color_temp = 370
@@ -146,6 +146,8 @@ class SavantLight(LightEntity):
                     hex_command = self.command.dali02_brightness(self._brightness_percentage)
                 case "":
                     hex_command = self.command.brightness(self._brightness_percentage)
+                case None:
+                    hex_command = self.command.brightness(self._brightness_percentage)
             await self.tcp_manager.send_command(hex_command)
         if "color_temp_kelvin" in kwargs:
             self.color_temp_kelvin_value = str(kwargs['color_temp_kelvin'])[:2]
@@ -164,19 +166,26 @@ class SavantLight(LightEntity):
             hex_command = self.command.rgb_color(self._hs_color)
             await self.tcp_manager.send_command(hex_command)
         
-        hex_command = self._command_to_hex(self, "on")
+        hex_command = self.command.turnonoff("on")
         await self.tcp_manager.send_command(hex_command)
 
     async def async_turn_off(self, **kwargs):
         self._state = True
         await self.tcp_manager.send_command(self.command.turnonoff("off"))
 
+    def _register_callback(self):
+        """返回处理自己的状态更新回调"""
+        def callback(response, device_type):
+            if device_type in self.device_type:
+                self.update_state(response)
+        return callback
+
     async def async_update(self):
         self._state = True
         # await self.tcp_manager.send_command(self.command.query_state())
 
-    def update_state(self, response):
-        print('灯收到状态响应: ' + str(response).replace('\\x', ''))
+    def update_state(self, response, device_type, sub_device_type):
+        print(sub_device_type + '灯收到状态响应: ' + str(response).replace('\\x', ''))
         self._state = self._parse_device_state(response)
         self.async_write_ha_state()
 
@@ -190,7 +199,7 @@ class SavantLight(LightEntity):
                 device_value = response[9]       #数据    
                 device_type = response[11]  #类型    0X11为DALI01亮度     0X12为DALI01色温
 
-                if device_type == 'DALI01':
+                if device_type == 'DALI-01':
                     if device_type == 12:
                         device_value = 45
                         self._color_temp = 1000000/(device_value*100)

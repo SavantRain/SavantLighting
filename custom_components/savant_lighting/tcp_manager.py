@@ -11,9 +11,11 @@ class TCPConnectionManager:
         self.reader = None
         self.writer = None
         self._is_connected = False
-        self.state_update_callback = state_update_callback  # 回调函数
+        # self.state_update_callback = state_update_callback  # 回调函数
         self.response_queue = asyncio.Queue()  # 用于缓存响应
         self.command_no = 0
+        self._keep_alive_task = None  # 定时发送任务
+        self._callbacks = {}
         
     async def connect(self):
         """建立TCP连接"""
@@ -26,6 +28,10 @@ class TCPConnectionManager:
             _LOGGER.info(f"成功连接到 {self.host}:{self.port}")
             # 启动后台任务来监听响应
             asyncio.create_task(self._listen_for_responses())
+            
+            if not self._keep_alive_task:
+                self._keep_alive_task = asyncio.create_task(self._send_keep_alive())
+            
             return True
         except Exception as e:
             _LOGGER.error(f"连接到 {self.host}:{self.port} 失败: {e}")
@@ -54,9 +60,12 @@ class TCPConnectionManager:
                 # 等待并读取响应，假设每次响应不超过 1024 字节
                 response = await asyncio.wait_for(self.reader.read(1024), timeout=5)
                 if response:
-                    # 将收到的响应放入队列
-                    self.response_queue.put_nowait(response)
-                    self.state_update_callback(response)
+                    response_str = bytes.fromhex(response.hex().strip())
+                    device_type,sub_device_type = self._parse_response_type(response_str)
+                    if device_type in self._callbacks:
+                        self._callbacks[device_type](response,device_type,sub_device_type)
+                    else:
+                        _LOGGER.warning(f"未识别的设备类型: {device_type}")
                 else:
                     _LOGGER.warning(f"连接到 {self.host}:{self.port} 关闭或断开")
                     self._is_connected = False  # 连接关闭时标记为断开
@@ -83,11 +92,48 @@ class TCPConnectionManager:
             _LOGGER.warning(f"连接到 {self.host}:{self.port} 无效，需要重新建立连接")
             return False
         return True
-    
+
+    async def _send_keep_alive(self):
+        """定时发送 FF 字节保持心跳"""
+        while self._is_connected:
+            try:
+                # 发送 FF 字节
+                ff_bytes = b'\xFF'
+                _LOGGER.info("发送心跳包: FF")
+                await self.send_command(ff_bytes)
+                await asyncio.sleep(60)  # 每 1 分钟发送一次
+            except Exception as e:
+                _LOGGER.error(f"发送心跳包失败: {e}")
+                break
+   
     async def get_response(self):
-        """获取缓存中的响应"""
+        """获取缓存中的响应,#暂时无调用"""
         try:
             response = await self.response_queue.get()
             return response
         except asyncio.QueueEmpty:
             return None
+   
+    def register_callback(self, device_type, callback):
+        """注册回调函数"""
+        self._callbacks[device_type] = callback
+        # self._callbacks.append(callback)
+   
+    def _parse_response_type(self, response_str):
+        data1 = response_str[8]
+        data2 = response_str[9]
+        data3 = response_str[10]
+        data4 = response_str[11]
+        _LOGGER.debug(f"解析出的数据位: data1={data1}, data2={data2}, data3={data3}, data4={data4}")
+        if data2 == 0x00 and data3 == 0x00 and data4 == 0x00:
+            return "switch",""
+        elif data3 == 0x00 and data4 == 0x11:
+            return "light","DALI-01"
+        elif data3 == 0x01 and data4 == 0x01:
+            return "light","DALI-02"
+        elif data3 == 0x01 and data4 == 0x13:
+            return "light","0603D"
+        elif data3 == 0x01 and data4 == 0x14:
+            return "light","rgb"
+        elif data3 == 0x01 and data4 == 0x14:
+            return "light",""
