@@ -67,7 +67,7 @@ class TCPConnectionManager:
                 response = await asyncio.wait_for(self.reader.read(1024), timeout=5)
                 if response:
                     response_str = bytes.fromhex(response.hex().strip())
-                    response_dict = self._parse_response_type(response_str)
+                    response_dict = self._parse_response(response_str)
                     if response_dict['device_type'] in self._callbacks and response_dict['device']:
                         self._callbacks[response_dict['device_type']](response_dict)
                     else:
@@ -144,7 +144,7 @@ class TCPConnectionManager:
         self._callbacks[device_type] = callback
         # self._callbacks.append(callback)
    
-    def _parse_response_type(self, response_str):
+    def _parse_response(self, response_str):
         response_dict = {
             "response_str": response_str,
             "data1": response_str[8],
