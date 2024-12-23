@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from homeassistant.helpers.entity_registry import async_get as async_get_entity_registry
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -8,6 +9,7 @@ class TCPConnectionManager:
     def __init__(self, host, port, state_update_callback):
         self.host = host
         self.port = port
+        self.hass = None
         self.reader = None
         self.writer = None
         self._is_connected = False
@@ -16,6 +18,10 @@ class TCPConnectionManager:
         self.command_no = 0
         self._keep_alive_task = None  # 定时发送任务
         self._callbacks = {}
+
+    def set_hass(self, hass):
+        """设置 Home Assistant 的核心对象"""
+        self.hass = hass
         
     async def connect(self):
         """建立TCP连接"""
@@ -61,11 +67,11 @@ class TCPConnectionManager:
                 response = await asyncio.wait_for(self.reader.read(1024), timeout=5)
                 if response:
                     response_str = bytes.fromhex(response.hex().strip())
-                    device_type,sub_device_type = self._parse_response_type(response_str)
-                    if device_type in self._callbacks:
-                        self._callbacks[device_type](response,device_type,sub_device_type)
+                    response_dict = self._parse_response_type(response_str)
+                    if response_dict['device_type'] in self._callbacks and response_dict['device']:
+                        self._callbacks[response_dict['device_type']](response_dict)
                     else:
-                        _LOGGER.warning(f"未识别的设备类型: {device_type}")
+                        _LOGGER.warning(f"未识别的设备类型: {response_dict['device_type']}")
                 else:
                     _LOGGER.warning(f"连接到 {self.host}:{self.port} 关闭或断开")
                     self._is_connected = False  # 连接关闭时标记为断开
@@ -113,27 +119,48 @@ class TCPConnectionManager:
             return response
         except asyncio.QueueEmpty:
             return None
-   
+
+    def get_device_by_unique_id(self, device_type, unique_id):
+        entity_registry = async_get_entity_registry(self.hass)
+        entity_entry = None
+        for entry in entity_registry.entities.values():
+            if entry.unique_id == unique_id:
+                entity_entry = entry
+                break
+        if entity_entry is None:
+            _LOGGER.error(f"未找到 unique_id 为 {unique_id} 的设备")
+            return None
+        entity_id = entity_entry.entity_id
+        
+        device = self.hass.data[device_type].get_entity(entity_id)
+
+        if device is None:
+            _LOGGER.error(f"未找到 entity_id 为 {entity_id} 的设备实例")
+            return None
+        return device
+
     def register_callback(self, device_type, callback):
         """注册回调函数"""
         self._callbacks[device_type] = callback
         # self._callbacks.append(callback)
    
     def _parse_response_type(self, response_str):
-        data1 = response_str[8]
-        data2 = response_str[9]
-        data3 = response_str[10]
-        data4 = response_str[11]
-        _LOGGER.debug(f"解析出的数据位: data1={data1}, data2={data2}, data3={data3}, data4={data4}")
-        if data2 == 0x00 and data3 == 0x00 and data4 == 0x00:
-            return "switch",""
-        elif data3 == 0x00 and data4 == 0x11:
-            return "light","DALI-01"
-        elif data3 == 0x01 and data4 == 0x01:
-            return "light","DALI-02"
-        elif data3 == 0x01 and data4 == 0x13:
-            return "light","0603D"
-        elif data3 == 0x01 and data4 == 0x14:
-            return "light","rgb"
-        elif data3 == 0x01 and data4 == 0x14:
-            return "light",""
+        response_dict = {
+            "response_str": response_str,
+            "data1": response_str[8],
+            "data2": response_str[9],
+            "data3": response_str[10],
+            "data4": response_str[11],
+            "device_type":"",
+            "sub_device_type":"",
+            "module_address":"3",
+            "loop_address":"1",
+            "unique_id":"",
+            "device":None
+        }
+        if response_dict["data2"] == 0x00 and response_dict["data3"] == 0x00 and response_dict["data4"] == 0x00:
+            response_dict["device_type"] = "switch"
+
+        unique_id = f"{response_dict["module_address"]}_{response_dict["loop_address"]}_{response_dict["device_type"]}"
+        response_dict['device'] = self.get_device_by_unique_id(response_dict["device_type"],unique_id)
+        return response_dict

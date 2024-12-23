@@ -22,6 +22,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # 保存配置信息
     tcp_manager = TCPConnectionManager(entry.data.get("host"), entry.data.get("port"), None)
+    tcp_manager.set_hass(hass)
     await tcp_manager.connect()
     
     hass.data[DOMAIN][entry.entry_id] = {

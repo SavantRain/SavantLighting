@@ -96,11 +96,12 @@ class SavantSwitch(SwitchEntity):
         # await self.tcp_manager.send_command(self.command.query_state())
         # 此代码如果不注释，会在每次执行操作后，进行状态查询。
 
-    def update_state(self, response, device_type, sub_device_type):
-        print('开关收到状态响应: ' + str(response).replace('\\x', ''))
-        self._state = self._parse_device_state(response)
-        self.async_write_ha_state()
-    
+    def update_state(self, response_dict):
+        print('开关收到状态响应: ' + str(response_dict).replace('\\x', ''))
+        device = response_dict['device']
+        device._state = self._parse_device_state(response_dict['response_str'])
+        device.async_write_ha_state()
+        
     def _parse_device_state(self, response):
         try:
             if len(response) >= 12:
