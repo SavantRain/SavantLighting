@@ -49,7 +49,7 @@ class LightCommand():
         return command
     
     def dali02_brightness(self, brightness_percentage):
-        brightness_hex = f"{int(brightness_percentage):02X}" if self.brightness_percentage is not None else '00'
+        brightness_hex = f"{int(brightness_percentage):02X}" if brightness_percentage is not None else '00'
         command_hex = f'{self.loop_hex}0004{brightness_hex}00FF10CA'
         command_bytes = bytes.fromhex(command_hex)
         command = self.host_bytes + self.module_bytes + command_bytes

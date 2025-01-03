@@ -166,8 +166,8 @@ class SavantLight(LightEntity):
             hex_command = self.command.rgb_color(self._hs_color)
             await self.tcp_manager.send_command(hex_command)
         
-        hex_command = self.command.turnonoff("on")
-        await self.tcp_manager.send_command(hex_command)
+        # hex_command = self.command.turnonoff("on")
+        # await self.tcp_manager.send_command(hex_command)
 
     async def async_turn_off(self, **kwargs):
         self._state = True
@@ -198,6 +198,23 @@ class SavantLight(LightEntity):
             if response_dict['data4'] == 0x12:
 
                 device._color_temp = 1000000/(response_dict['data1']*100)
+        elif response_dict['sub_device_type'] == 'DALI-02':
+            if response_dict['data4'] == 0x15:
+                device._brightness = response_dict['data1'] * 255 / 100
+                if response_dict['data1'] == 0x00:
+                        device._state = False
+                else:
+                        device._state = True
+                device._color_temp = 1000000/(response_dict['data2']*100)
+
+        elif response_dict['sub_device_type'] == '0603D':
+            if response_dict['data4'] == 0x10:
+                device._brightness = response_dict['data1'] * 255 / 100
+                if response_dict['data1'] == 0x00:
+                        device._state = False
+                else:
+                        device._state = True
+
 
         # device._state = self._parse_device_state(response_dict['response_str'])
         device.async_write_ha_state()

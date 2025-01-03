@@ -178,8 +178,13 @@ class TCPConnectionManager:
             if response_dict["data4"] == 0x12:
                 response_dict["loop_address"] = response_dict["loop_address"] - 1
 
-        elif response_dict["data2"] == 0x00 and response_dict["data3"] == 0x00 and response_dict["data4"] == 0x15:
+        elif response_dict["data3"] == 0x00 and response_dict["data4"] == 0x15:
             response_dict["device_type"] = "light"
+            response_dict["sub_device_type"] = "DALI-02"
+        
+        elif response_dict["data3"] == 0x00 and response_dict["data4"] == 0x00 and response_dict["data4"] == 0x10:
+            response_dict["device_type"] = "light"
+            response_dict["sub_device_type"] = "0603D"
 
         unique_id = f"{response_dict["module_address"]}_{response_dict["loop_address"]}_{response_dict["device_type"]}"
         response_dict['device'] = self.get_device_by_unique_id(response_dict["device_type"],unique_id)
