@@ -184,31 +184,42 @@ class SavantLight(LightEntity):
         self._state = True
         # await self.tcp_manager.send_command(self.command.query_state())
 
-    def update_state(self, response, device_type, sub_device_type):
-        print(sub_device_type + '灯收到状态响应: ' + str(response).replace('\\x', ''))
-        self._state = self._parse_device_state(response)
-        self.async_write_ha_state()
+    def update_state(self, response_dict):
+        print('开关收到状态响应: ' + str(response_dict).replace('\\x', ''))
+        device = response_dict['device']
 
-    def _parse_device_state(self, response):
-        try:
-            #亮度回复   AC E6 00 11 02 01 00 04 64 00 00 11（DALI01亮度标识符） CA
-            #色温回复   AC E6 00 11 02 02 00 04 41 00 00 12（DALI01色温标识符） CA
-            if len(response) >= 12:
-                loop_hex = f"{int(self._loop_address):02X}"
-                modubleID =response[5]      #通道地址
-                device_value = response[9]       #数据    
-                device_type = response[11]  #类型    0X11为DALI01亮度     0X12为DALI01色温
+        if response_dict['sub_device_type'] == 'DALI-01':
+            if response_dict['data4'] == 0x11:
+                device._brightness = response_dict['data1'] * 255 / 100
+                if response_dict['data1'] == 0x00:
+                    device._state = False
+                else:
+                    device._state = True
+            if response_dict['data4'] == 0x12:
 
-                if device_type == 'DALI-01':
-                    if device_type == 12:
-                        device_value = 45
-                        self._color_temp = 1000000/(device_value*100)
-                    elif device_type == 11:
-                        self._brightness = device_value * 255 / 100
-                return True
-            else:
-                _LOGGER.error("无效的设备回复长度：{len(response)}")
-                return None
-        except Exception as e:
-            _LOGGER.error("解析设备状态出错：{e}")
-            return None
+                device._color_temp = 1000000/(response_dict['data1']*100)
+
+        # device._state = self._parse_device_state(response_dict['response_str'])
+        device.async_write_ha_state()
+
+    # def _parse_device_state(device, response):
+    #     try:
+    #         #亮度回复   AC E6 00 11 02 01 00 04 64 00 00 11（DALI01亮度标识符） CA
+    #         #色温回复   AC E6 00 11 02 02 00 04 41 00 00 12（DALI01色温标识符） CA
+    #         if len(response) >= 12:
+    #             device_value = response[8]       #数据    
+    #             device_type = response[11]  #类型    0X11为DALI01亮度     0X12为DALI01色温
+
+    #             if device_type == 'DALI-01':
+    #                 if device_type == 0x12:
+    #                     device_value = 45
+    #                     device._color_temp = 1000000/(device_value*100)
+    #                 elif device_type == 0x11:
+    #                     device._brightness = device_value * 255 / 100
+    #             return True
+    #         else:
+    #             _LOGGER.error("无效的设备回复长度：{len(response)}")
+    #             return None
+    #     except Exception as e:
+    #         _LOGGER.error("解析设备状态出错：{e}")
+    #         return None

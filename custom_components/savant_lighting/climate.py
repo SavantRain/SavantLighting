@@ -1,4 +1,4 @@
-import logging
+import logging, time
 from datetime import timedelta
 from homeassistant.components.climate import ClimateEntity
 from homeassistant.components.climate.const import (
@@ -165,7 +165,9 @@ class SavantClimate(ClimateEntity):
     async def _send_state_to_device(self, command):
         """Send the command to the device."""
         hex_command = self._command_to_hex(command)
-        response, is_online = await self.tcp_manager.send_command(hex_command)
+        for command in hex_command:
+            await self.tcp_manager.send_command(command)
+            time.sleep(500)
 
     async def _get_state_from_device(self):
         """Query the device for its current state."""
@@ -182,7 +184,7 @@ class SavantClimate(ClimateEntity):
         loop_hex_value = int(loop_hex, 16)
         
         #空调地址为32-47
-
+        command_hex = []
         if command == HVAC_MODE_OFF:
             loop_hex_modeaddress = loop_hex_value * 9 - 287
             loop_hex_original = f"{loop_hex_modeaddress:02X}"
@@ -192,12 +194,14 @@ class SavantClimate(ClimateEntity):
             # 第一条指令用于空调开机
             loop_hex_modeaddress = loop_hex_value * 9 - 287
             loop_hex_original = f"{loop_hex_modeaddress:02X}"
-            command_hex_1 = f"{loop_hex_original}000401002020CA"
+            command_hex.append(f"{loop_hex_original}000401002020CA")
+            # command_hex_1 = f"{loop_hex_original}000401002020CA"
             # 第二条指令用于开启制冷
             loop_hex_modeaddress = loop_hex_value * 9 - 286
             loop_hex_original = f"{loop_hex_modeaddress:02X}"
-            command_hex_2 = f"{loop_hex_original}000401002020CA"
-            return command_hex_1, command_hex_2
+            command_hex.append(f"{loop_hex_original}000401002020CA")
+            # command_hex_2 = f"{loop_hex_original}000401002020CA"
+            return command_hex
         elif command == HVAC_MODE_HEAT:
             # 第一条指令用于空调开机
             loop_hex_modeaddress = loop_hex_value * 9 - 287

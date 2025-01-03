@@ -145,6 +145,7 @@ class TCPConnectionManager:
         # self._callbacks.append(callback)
    
     def _parse_response(self, response_str):
+        print(response_str)
         response_dict = {
             "response_str": response_str,
             "data1": response_str[8],
@@ -153,13 +154,32 @@ class TCPConnectionManager:
             "data4": response_str[11],
             "device_type":"",
             "sub_device_type":"",
-            "module_address":"3",
-            "loop_address":"1",
+            "module_address": response_str[4],
+            "loop_address": response_str[5],
             "unique_id":"",
             "device":None
         }
         if response_dict["data2"] == 0x00 and response_dict["data3"] == 0x00 and response_dict["data4"] == 0x00:
             response_dict["device_type"] = "switch"
+
+        elif response_dict["data3"] == 0x00 and response_dict["data4"] == 0x00:
+            response_dict["device_type"] = "io08"
+
+        elif response_dict["data4"] == 0x00:
+            response_dict["device_type"] = "keypad"
+
+        elif response_dict["data2"] == 0x00 and response_dict["data3"] == 0x00 and response_dict["data4"] == 0x11:
+            response_dict["device_type"] = "light"
+            response_dict["sub_device_type"] = "DALI-01"
+
+        elif response_dict["data2"] == 0x00 and response_dict["data3"] == 0x00 and response_dict["data4"] == 0x12:
+            response_dict["device_type"] = "light"
+            response_dict["sub_device_type"] = "DALI-01"
+            if response_dict["data4"] == 0x12:
+                response_dict["loop_address"] = response_dict["loop_address"] - 1
+
+        elif response_dict["data2"] == 0x00 and response_dict["data3"] == 0x00 and response_dict["data4"] == 0x15:
+            response_dict["device_type"] = "light"
 
         unique_id = f"{response_dict["module_address"]}_{response_dict["loop_address"]}_{response_dict["device_type"]}"
         response_dict['device'] = self.get_device_by_unique_id(response_dict["device_type"],unique_id)
