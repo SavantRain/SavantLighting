@@ -136,16 +136,16 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
         # 添加设备表单，包含名称字段
         if self.device_type == 'light':
             data_schema = vol.Schema({
-                vol.Required("name", default="设备名称"): str,
-                vol.Required("module_address", default="模块地址: 1-64"): str,
-                vol.Required("loop_address", default="回路地址: 1-8"): str,
+                vol.Required("name", default=""): str,
+                vol.Required("module_address", default=""): int,
+                vol.Required("loop_address", default=""): int,
                 vol.Required("gradient_time"):int,
             })
         else:
             data_schema = vol.Schema({
-                vol.Required("name", default="设备名称"): str,
-                vol.Required("module_address", default="模块地址: 1-64"): str,
-                vol.Required("loop_address", default="回路地址: 1-8"): str,
+                vol.Required("name", default=""): str,
+                vol.Required("module_address", default=""): int,
+                vol.Required("loop_address", default=""): int,
             })
         return self.async_show_form(step_id="add", data_schema=data_schema)
     
@@ -155,7 +155,7 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
         
         # 如果没有设备可以配置，显示一条错误信息
         if not devices:
-            return self.async_abort(reason="no_devices_to_configure")
+            return self.async_abort(reason="没有找到设备")
 
         if user_input is not None:
             # 用户选择了某个设备，进入配置流程
@@ -165,7 +165,7 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
         # 显示设备选择菜单
         data_schema = vol.Schema({
             vol.Required("selected_device"): vol.In(
-                {device["name"]: f"{device['name']} ({device['module_address']}, {device['loop_address']})" for device in devices}
+                {device["name"]: f"{device['name']} (模块地址：{device['module_address']}, 回路地址：{device['loop_address']})" for device in devices}
             )
         })
 
@@ -193,7 +193,7 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
         # 显示设备选择菜单
         data_schema = vol.Schema({
             vol.Required("selected_device"): vol.In(
-                {device["name"]: f"{device['name']} ({device['module_address']}, {device['loop_address']})" for device in devices}
+                {device["name"]: f"{device['name']} (模块地址：{device['module_address']}, 回路地址：{device['loop_address']})" for device in devices}
             )
         })
 

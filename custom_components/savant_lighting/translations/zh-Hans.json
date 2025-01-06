@@ -1,40 +1,54 @@
 {
   "config": {
-      "step": {
-          "user": {
-              "title": "网关配置",
-              "description": "请输入网关信息。",
-              "data": {
-                "host": "IP地址",
-                "port": "端口"
-              }
-          }
-      }
-  },
-  "option":{
     "step": {
-      "init": {
-          "title": "设备管理",
-          "description": "选择要执行的操作。"
-        },
-        "add": {
-          "title": "添加设备",
-          "description": "请输入设备信息。",
-          "data": {
-              "name": "设备名称",
-              "module_address": "模块地址",
-              "loop_address": "回路地址"
-          }
-        },
-        "edit_device": {
-            "title": "修改设备",
-            "description": "请输入设备信息。",
-            "data": {
-              "name": "设备名称",
-              "module_address": "模块地址",
-              "loop_address": "回路地址"
-            }
+      "user": {
+        "title": "网关配置",
+        "description": "请输入网关信息。",
+        "data": {
+          "host": "IP地址",
+          "port": "端口"
         }
       }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "设备管理",
+        "description": "选择要执行的操作。"
+      },
+      "add": {
+        "title": "添加设备",
+        "description": "请输入设备信息。",
+        "data": {
+          "name": "设备名称",
+          "module_address": "模块地址: 1-64",
+          "loop_address": "回路地址: 1-8",
+          "gradient_time": "渐变时间，数字"
+        }
+      },
+      "configure":{
+        "title": "请选择",
+        "description": "选择要执行的设备。"
+      },
+      "delete":{
+        "title": "请选择",
+        "description": "选择要执行的设备。"
+      },
+      "device_menu":{
+        "title": "请选择",
+        "description": "选择要执行的操作。"
+      },
+      "edit_device": {
+        "title": "修改设备",
+        "description": "请输入设备信息。",
+        "data": {
+          "name": "设备名称",
+          "module_address": "模块地址: 1-64",
+          "loop_address": "回路地址: 1-8",
+          "gradient_time": "渐变时间，数字"
+        }
+      }
+    }
   }
 }
