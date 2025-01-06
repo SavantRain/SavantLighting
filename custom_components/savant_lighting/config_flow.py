@@ -33,7 +33,7 @@ class SavantLightingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         # 定义表单数据结构
         data_schema = vol.Schema({
             vol.Required("host"): str,
-            vol.Required("port", default=8080): int,
+            vol.Required("port", default=6005): int,
         })
 
         # 显示网关配置表单

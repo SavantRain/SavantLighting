@@ -84,13 +84,6 @@ class SavantSwitch(SwitchEntity):
         self._state = True
         await self.tcp_manager.send_command(self.command.turnonoff("off"))
     
-    def _register_callback(self):
-        """返回处理自己的状态更新回调"""
-        def callback(response, device_type):
-            if device_type == self.device_type:
-                self.update_state(response)
-        return callback
-    
     async def async_update(self):
         self._state = True
         # await self.tcp_manager.send_command(self.command.query_state())

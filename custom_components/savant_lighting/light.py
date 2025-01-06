@@ -22,6 +22,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             name=device["name"],
             module_address=device["module_address"],
             loop_address=device["loop_address"],
+            gradient_time=device["gradient_time"],
             host=device["host"],
             port=device["port"],
             sub_device_type=device["sub_device_type"],
@@ -34,11 +35,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 class SavantLight(LightEntity):
     """Representation of a Savant Light."""
 
-    def __init__(self, name, module_address, loop_address, host, port, sub_device_type, tcp_manager):
+    def __init__(self, name, module_address, loop_address, gradient_time, host, port, sub_device_type, tcp_manager):
         """Initialize the Savant Light."""
         self._attr_name = name
         self._module_address = module_address
         self._loop_address = loop_address
+        self._gradient_time = gradient_time
         self._host = host
         self._port = port
         self._sub_device_type = sub_device_type
@@ -68,7 +70,7 @@ class SavantLight(LightEntity):
             self._min_mireds = 152
             self._max_mireds = 667
             self._supported_color_modes = {ColorMode.COLOR_TEMP, ColorMode.BRIGHTNESS}  # 支持HS颜色模式和亮度
-        else:
+        elif self._sub_device_type == "single":
             self._supported_color_modes = {ColorMode.BRIGHTNESS}  # 支持HS颜色模式和亮
 
     async def async_added_to_hass(self):
@@ -144,9 +146,7 @@ class SavantLight(LightEntity):
                     hex_command = self.command.dali01_brightness(self._brightness_percentage)
                 case "DALI-02":
                     hex_command = self.command.dali02_brightness(self._brightness_percentage)
-                case "":
-                    hex_command = self.command.brightness(self._brightness_percentage)
-                case None:
+                case "single":
                     hex_command = self.command.brightness(self._brightness_percentage)
             await self.tcp_manager.send_command(hex_command)
         if "color_temp_kelvin" in kwargs:
@@ -172,13 +172,6 @@ class SavantLight(LightEntity):
     async def async_turn_off(self, **kwargs):
         self._state = True
         await self.tcp_manager.send_command(self.command.turnonoff("off"))
-
-    def _register_callback(self):
-        """返回处理自己的状态更新回调"""
-        def callback(response, device_type):
-            if device_type in self.device_type:
-                self.update_state(response)
-        return callback
 
     async def async_update(self):
         self._state = True

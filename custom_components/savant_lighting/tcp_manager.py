@@ -142,7 +142,6 @@ class TCPConnectionManager:
     def register_callback(self, device_type, callback):
         """注册回调函数"""
         self._callbacks[device_type] = callback
-        # self._callbacks.append(callback)
    
     def _parse_response(self, response_str):
         print(response_str)

@@ -61,7 +61,7 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
         )
         
     async def async_step_light_menu(self, user_input=None):
-        return await self.async_step_device_menu(device_type="light",user_input=user_input)
+        return await self.async_step_device_menu(device_type="light",user_input=user_input, sub_device_type="single")
     
     async def async_step_light_006_menu(self, user_input=None):
         return await self.async_step_device_menu(device_type="light",user_input=user_input, sub_device_type="0603D")
@@ -122,6 +122,8 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
                 "host": host,
                 "port": port
             }
+            if self.device_type == 'light':
+                device_data["gradient_time"] = user_input["gradient_time"]
             devices.append(device_data)
 
             self.hass.config_entries.async_update_entry(
@@ -132,11 +134,19 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
             return self.async_create_entry(title=f"{self.device_type.capitalize()} Added",data=device_data)
 
         # 添加设备表单，包含名称字段
-        data_schema = vol.Schema({
-            vol.Required("name", default="设备名称"): str,
-            vol.Required("module_address", default="模块地址: 1-64"): str,
-            vol.Required("loop_address", default="回路地址: 1-8"): str,
-        })
+        if self.device_type == 'light':
+            data_schema = vol.Schema({
+                vol.Required("name", default="设备名称"): str,
+                vol.Required("module_address", default="模块地址: 1-64"): str,
+                vol.Required("loop_address", default="回路地址: 1-8"): str,
+                vol.Required("gradient_time"):int,
+            })
+        else:
+            data_schema = vol.Schema({
+                vol.Required("name", default="设备名称"): str,
+                vol.Required("module_address", default="模块地址: 1-64"): str,
+                vol.Required("loop_address", default="回路地址: 1-8"): str,
+            })
         return self.async_show_form(step_id="add", data_schema=data_schema)
     
     async def async_step_configure(self, user_input=None):
@@ -202,30 +212,43 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
             # 更新设备配置数据
             updated_device_data = {
                 "type": self.device_type,
-                ""
+                "sub_device_type": self.sub_device_type,
                 "name": user_input["name"],
-                "module_address": user_input["module_address"],
-                "loop_address": user_input["loop_address"],
+                "module_address": selected_device_data["module_address"],
+                "loop_address": selected_device_data["loop_address"],
                 "host": self.host,
                 "port": self.port
             }
-            
+            if self.device_type == 'light':
+                updated_device_data["gradient_time"] = user_input["gradient_time"]
             # 更新设备数据到配置条目中
             await self._update_device_config(selected_device_data, updated_device_data)
             
             return self.async_create_entry(title="Device Configured", data={})
 
         # 预填充当前设备数据
-        data_schema = vol.Schema({
-            vol.Required("name", default=selected_device_data["name"]): str,
-            vol.Required("module_address", default=selected_device_data["module_address"]): str,
-            vol.Required("loop_address", default=selected_device_data["loop_address"]): str,
-        })
-
+        if self.device_type == "light":
+            data_schema = vol.Schema({
+                vol.Required("name", default=selected_device_data["name"]): str,
+                # vol.Required("module_address", default=selected_device_data["module_address"]): str,
+                # vol.Required("loop_address", default=selected_device_data["loop_address"]): str,
+                vol.Required("gradient_time", default=selected_device_data["gradient_time"]):int,
+            })
+        else:
+            data_schema = vol.Schema({
+                vol.Required("name", default=selected_device_data["name"]): str,
+                # vol.Required("module_address", default=selected_device_data["module_address"]): str,
+                # vol.Required("loop_address", default=selected_device_data["loop_address"]): str,
+            })
+        description_placeholders = {
+            "desc": f"配置{self.selected_device}",
+            "module_address": selected_device_data["module_address"],
+            "loop_address": selected_device_data["loop_address"]
+        }
         return self.async_show_form(
             step_id="edit_device",
             data_schema=data_schema,
-            description_placeholders={"desc": f"配置{self.selected_device}"}
+            description_placeholders=description_placeholders
         )
         
     async def _register_device_and_entity(self, device_data, device_type):
@@ -251,8 +274,15 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
         devices = entry.data.get("devices", [])
         updated_devices = []
         for device in devices:
-            if device["name"] == old_device_data["name"] and device["module_address"] == old_device_data["module_address"]:
-                updated_devices.append(new_device_data)
+            if (
+                device["type"] == new_device_data["type"] and
+                device["sub_device_type"] == new_device_data["sub_device_type"] and
+                device["module_address"] == new_device_data["module_address"] and
+                device["loop_address"] == new_device_data["loop_address"]
+            ):
+                updated_device = {**device, **new_device_data}
+                updated_device["name"] = new_device_data.get("name", device["name"])  # 更新名称
+                updated_devices.append(updated_device)
             else:
                 updated_devices.append(device)
         # 更新配置条目中的设备列表

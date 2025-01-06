@@ -13,9 +13,10 @@ from homeassistant.const import TEMP_CELSIUS, ATTR_TEMPERATURE
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from . import tcp_manager
 from .const import DOMAIN
-from .tcp_manager import TCPConnectionManager
+from .command_helper import ClimateCommand
+from .send_command import *
+
 
 _LOGGER = logging.getLogger(__name__)
 SCAN_INTERVAL = timedelta(seconds=60)
@@ -25,7 +26,8 @@ SUPPORTED_FAN_MODES = ["low", "medium", "high", "auto"]
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
     """Set up Savant Climate entities from a config entry."""
-    config = hass.data[DOMAIN].get(entry.entry_id, {}).get("devices", [])
+    config = hass.data[DOMAIN].get(entry.entry_id, {})
+    devices = config.get("devices", [])
     
     climates = [
         SavantClimate(
@@ -34,15 +36,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             loop_address=device["loop_address"],
             host=device["host"],
             port=device["port"],
+            tcp_manager=config["tcp_manager"]
         )
-        for device in config if device["type"] == "climate"
+        for device in devices if device["type"] == "climate"
     ]
     async_add_entities(climates, update_before_add=True)
 
 class SavantClimate(ClimateEntity):
     """Representation of a Savant Climate (AC)."""
 
-    def __init__(self, name, module_address, loop_address, host, port):
+    def __init__(self, name, module_address, loop_address, host, port, tcp_manager):
         """Initialize the climate entity."""
         self._attr_name = name
         self._module_address = module_address
@@ -53,12 +56,11 @@ class SavantClimate(ClimateEntity):
         self._current_temperature = 24.0
         self._target_temperature = 24.0
         self._fan_mode = "auto"
-        self.tcp_manager = TCPConnectionManager(host, port)
-
+        self.tcp_manager = tcp_manager
+        self.tcp_manager.register_callback("climate", self.update_state)
+        self.command = ClimateCommand(host,module_address,loop_address)
+        
     async def async_added_to_hass(self):
-        """Callback when entity is added to hass."""
-        _LOGGER.debug(f"{self.name} has been added to hass")
-        # 延迟更新设备状态，以避免阻塞 setup
         self.hass.async_create_task(self.async_update())
         self.async_write_ha_state()    
         
@@ -162,6 +164,15 @@ class SavantClimate(ClimateEntity):
         except Exception as e:
             _LOGGER.error(f"Error updating state: {e}")
 
+    def update_state(self, response_dict):
+        print('空调收到状态响应: ' + str(response_dict).replace('\\x', ''))
+    
+    
+    
+    
+    
+    
+    # 以下根据light调整代码
     async def _send_state_to_device(self, command):
         """Send the command to the device."""
         hex_command = self._command_to_hex(command)
@@ -268,18 +279,18 @@ class SavantClimate(ClimateEntity):
 
             return command
 
-    # def _query_to_hex(self, command):
-    #     """Convert a query to its hexadecimal representation."""
-    #     host_hex = f"{int(self._host.split('.')[-1]):02X}"
-    #     module_hex = f"{int(self._module_address):02X}"
-    #     command_hex = '01000108CA'
+    def _query_to_hex(self, command):
+        """Convert a query to its hexadecimal representation."""
+        host_hex = f"{int(self._host.split('.')[-1]):02X}"
+        module_hex = f"{int(self._module_address):02X}"
+        command_hex = '01000108CA'
 
-    #     host_bytes = bytes.fromhex(host_hex)
-    #     module_bytes = bytes.fromhex(module_hex)
-    #     command_bytes = bytes.fromhex(command_hex)
-    #     query_command = host_bytes + module_bytes + command_bytes
+        host_bytes = bytes.fromhex(host_hex)
+        module_bytes = bytes.fromhex(module_hex)
+        command_bytes = bytes.fromhex(command_hex)
+        query_command = host_bytes + module_bytes + command_bytes
 
-    #     return query_command
+        return query_command
 
     def _parse_device_state(self, response):
         """Parse the state from the device's response."""
