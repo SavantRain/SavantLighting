@@ -18,6 +18,18 @@ async def send_tcp_command(host, port, data):
 
     return response, online
 
+async def send_tcp_command_array(host, port, data_array):
+    manager = TCPConnectionManager(host, port)
+
+    # 发送命令
+    for command in data_array:
+        response, online = await manager.send_command(command)
+        if online:
+            _LOGGER.info(f"设备响应: {response}")
+        else:
+            _LOGGER.warning("设备离线")
+    return  online
+
 # async def send_tcp_command(host, port, data):
 #     """通过TCP发送命令并处理异常"""
 #     try:

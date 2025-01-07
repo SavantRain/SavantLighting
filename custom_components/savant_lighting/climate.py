@@ -162,8 +162,8 @@ class SavantClimate(ClimateEntity):
     # 以下根据light调整代码
     async def _send_state_to_device(self, command):
         """Send the command to the device."""
-        hex_command = self._command_to_hex(command)
-        response, is_online = await self.tcp_manager.send_command(hex_command)
+        hex_command_list = self._command_to_hex(command)
+        response, is_online = await self.tcp_manager.send_command_list(hex_command_list)
         # for command in hex_command:
         #     await self.tcp_manager.send_command(command)
         #     # time.sleep(5)
@@ -188,40 +188,53 @@ class SavantClimate(ClimateEntity):
             loop_hex_modeaddress = loop_hex_value * 9 - 287
             loop_hex_original = f"{loop_hex_modeaddress:02X}"
             command_hex = f"{loop_hex_original}000400002020CA"
+            
         elif command == HVAC_MODE_COOL:
             #开机模式控制需要连续发送两条指令
             # 第一条指令用于空调开机
             loop_hex_modeaddress = loop_hex_value * 9 - 287
             loop_hex_original = f"{loop_hex_modeaddress:02X}"
-            command_list.append(f"{loop_hex_original}000401002020CA")
-            command_hex = command_list[0]
+            command_hex = f"{loop_hex_original}000401002020CA"
+            host_bytes = bytes.fromhex(host_hex)
+            module_bytes = bytes.fromhex(module_hex)
+            command_bytes = bytes.fromhex(command_hex)
+            command = host_bytes + module_bytes + command_bytes
+            command_list.append(command)
+            
             # 第二条指令用于开启制冷
             loop_hex_modeaddress = loop_hex_value * 9 - 286
             loop_hex_original = f"{loop_hex_modeaddress:02X}"
-            command_list.append(f"{loop_hex_original}000405002020CA")
-            command_hex = command_list[-1]
+            command_hex = f"{loop_hex_original}000405002020CA"
+            host_bytes = bytes.fromhex(host_hex)
+            module_bytes = bytes.fromhex(module_hex)
+            command_bytes = bytes.fromhex(command_hex)
+            command = host_bytes + module_bytes + command_bytes
+            command_list.append(command)
+            
+            return command_list
+        
         elif command == HVAC_MODE_HEAT:
             # 第一条指令用于空调开机
             loop_hex_modeaddress = loop_hex_value * 9 - 287
             loop_hex_original = f"{loop_hex_modeaddress:02X}"
             command_list.append(f"{loop_hex_original}000401002020CA")
-            command_hex = command_list[0]
+            # command_hex = command_list[0]
             # 第二条指令用于开启制热
             loop_hex_modeaddress = loop_hex_value * 9 - 286
             loop_hex_original = f"{loop_hex_modeaddress:02X}"
             command_list.append(f"{loop_hex_original}000408002020CA")
-            command_hex = command_list[-1]
+            # command_hex = command_list[-1]
         elif command == HVAC_MODE_AUTO:
             # 第一条指令用于空调开机
             loop_hex_modeaddress = loop_hex_value * 9 - 287
             loop_hex_original = f"{loop_hex_modeaddress:02X}"
             command_list.append(f"{loop_hex_original}000401002020CA")
-            command_hex = command_list[0]
+            # command_hex = command_list[0]
             # 第二条指令用于开启通风
             loop_hex_modeaddress = loop_hex_value * 9 - 286
             loop_hex_original = f"{loop_hex_modeaddress:02X}"
             command_list.append(f"{loop_hex_original}000404002020CA")
-            command_hex = command_list[-1]
+            # command_hex = command_list[-1]
         elif command.startswith("temp:"):
             #温度下发指令范围16-35°
             temperature_str = command.split(":")[1]
