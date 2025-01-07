@@ -119,26 +119,13 @@ class SavantClimate(ClimateEntity):
             "model": "Climate Model",
         }
         
-    # async def async_set_hvac_mode(self, hvac_mode):
-    #     """Set the HVAC mode."""
-    #     if hvac_mode in SUPPORTED_HVAC_MODES:
-    #         self._state = hvac_mode
-    #         await self._send_state_to_device(hvac_mode)
-    #         self.async_write_ha_state()
-
     async def async_set_hvac_mode(self, hvac_mode):
         """Set the HVAC mode."""
         if hvac_mode in SUPPORTED_HVAC_MODES:
             self._state = hvac_mode
-            hex_command = self._command_to_hex(hvac_mode)
-            if isinstance(hex_command, tuple):
-                # 如果是两条指令，依次发送
-                response_1, is_online_1 = await self.tcp_manager.send_command(hex_command[0])
-                response_2, is_online_2 = await self.tcp_manager.send_command(hex_command[1])
-                # 这里可以根据实际需求对两次响应进行处理，比如检查是否都成功等
-            else:
-                response, is_online = await self.tcp_manager.send_command(hex_command)
+            await self._send_state_to_device(hvac_mode)
             self.async_write_ha_state()
+
 
     async def async_set_fan_mode(self, fan_mode):
         """Set the fan mode."""
@@ -176,15 +163,16 @@ class SavantClimate(ClimateEntity):
     async def _send_state_to_device(self, command):
         """Send the command to the device."""
         hex_command = self._command_to_hex(command)
-        for command in hex_command:
-            await self.tcp_manager.send_command(command)
-            time.sleep(500)
-
-    async def _get_state_from_device(self):
-        """Query the device for its current state."""
-        hex_command = self._query_to_hex("get_state")
         response, is_online = await self.tcp_manager.send_command(hex_command)
-        return response
+        # for command in hex_command:
+        #     await self.tcp_manager.send_command(command)
+        #     # time.sleep(5)
+
+    # async def _get_state_from_device(self):
+    #     """Query the device for its current state."""
+    #     hex_command = self._query_to_hex("get_state")
+    #     response, is_online = await self.tcp_manager.send_command(hex_command)
+    #     return response
 
     def _command_to_hex(self, command):
         """将'开'和'关'的命令转换为十六进制格式"""
@@ -195,7 +183,7 @@ class SavantClimate(ClimateEntity):
         loop_hex_value = int(loop_hex, 16)
         
         #空调地址为32-47
-        command_hex = []
+        command_list = []
         if command == HVAC_MODE_OFF:
             loop_hex_modeaddress = loop_hex_value * 9 - 287
             loop_hex_original = f"{loop_hex_modeaddress:02X}"
@@ -205,34 +193,35 @@ class SavantClimate(ClimateEntity):
             # 第一条指令用于空调开机
             loop_hex_modeaddress = loop_hex_value * 9 - 287
             loop_hex_original = f"{loop_hex_modeaddress:02X}"
-            command_hex.append(f"{loop_hex_original}000401002020CA")
-            # command_hex_1 = f"{loop_hex_original}000401002020CA"
+            command_list.append(f"{loop_hex_original}000401002020CA")
+            command_hex = command_list[0]
             # 第二条指令用于开启制冷
             loop_hex_modeaddress = loop_hex_value * 9 - 286
             loop_hex_original = f"{loop_hex_modeaddress:02X}"
-            command_hex.append(f"{loop_hex_original}000401002020CA")
-            # command_hex_2 = f"{loop_hex_original}000401002020CA"
-            return command_hex
+            command_list.append(f"{loop_hex_original}000405002020CA")
+            command_hex = command_list[-1]
         elif command == HVAC_MODE_HEAT:
             # 第一条指令用于空调开机
             loop_hex_modeaddress = loop_hex_value * 9 - 287
             loop_hex_original = f"{loop_hex_modeaddress:02X}"
-            command_hex_1 = f"{loop_hex_original}000401002020CA"
+            command_list.append(f"{loop_hex_original}000401002020CA")
+            command_hex = command_list[0]
             # 第二条指令用于开启制热
             loop_hex_modeaddress = loop_hex_value * 9 - 286
             loop_hex_original = f"{loop_hex_modeaddress:02X}"
-            command_hex_2 = f"{loop_hex_original}000408002020CA"
-            return command_hex_1, command_hex_2
+            command_list.append(f"{loop_hex_original}000408002020CA")
+            command_hex = command_list[-1]
         elif command == HVAC_MODE_AUTO:
             # 第一条指令用于空调开机
             loop_hex_modeaddress = loop_hex_value * 9 - 287
             loop_hex_original = f"{loop_hex_modeaddress:02X}"
-            command_hex_1 = f"{loop_hex_original}000401002020CA"
+            command_list.append(f"{loop_hex_original}000401002020CA")
+            command_hex = command_list[0]
             # 第二条指令用于开启通风
             loop_hex_modeaddress = loop_hex_value * 9 - 286
             loop_hex_original = f"{loop_hex_modeaddress:02X}"
-            command_hex_2 = f"{loop_hex_original}000404002020CA"
-            return command_hex_1, command_hex_2
+            command_list.append(f"{loop_hex_original}000404002020CA")
+            command_hex = command_list[-1]
         elif command.startswith("temp:"):
             #温度下发指令范围16-35°
             temperature_str = command.split(":")[1]
@@ -247,50 +236,37 @@ class SavantClimate(ClimateEntity):
         elif command == "medium":
             loop_hex_modeaddress = loop_hex_value * 9 - 285
             loop_hex_original = f"{loop_hex_modeaddress:02X}"
-            command_hex = f"{loop_hex}000402002020CA"
+            command_hex = f"{loop_hex_original}000402002020CA"
         elif command == "high":
             loop_hex_modeaddress = loop_hex_value * 9 - 285
             loop_hex_original = f"{loop_hex_modeaddress:02X}"
-            command_hex = f"{loop_hex}000401002020CA"
+            command_hex = f"{loop_hex_original}000401002020CA"
         elif command == "auto":
             loop_hex_modeaddress = loop_hex_value * 9 - 285
             loop_hex_original = f"{loop_hex_modeaddress:02X}"
-            command_hex = f"{loop_hex}000400002020CA"
+            command_hex = f"{loop_hex_original}000400002020CA"
         else:
             command_hex = ""
-
-        if isinstance(command_hex, tuple):
-            host_bytes_1 = bytes.fromhex(host_hex)
-            module_bytes_1 = bytes.fromhex(module_hex)
-            command_bytes_1 = bytes.fromhex(command_hex[0])
-            command_1 = host_bytes_1 + module_bytes_1 + command_bytes_1
-
-            host_bytes_2 = bytes.fromhex(host_hex)
-            module_bytes_2 = bytes.fromhex(module_hex)
-            command_bytes_2 = bytes.fromhex(command_hex[1])
-            command_2 = host_bytes_2 + module_bytes_2 + command_bytes_2
-
-            return command_1, command_2
-        else:
-            host_bytes = bytes.fromhex(host_hex)
-            module_bytes = bytes.fromhex(module_hex)
-            command_bytes = bytes.fromhex(command_hex)
-            command = host_bytes + module_bytes + command_bytes
-
-            return command
-
-    def _query_to_hex(self, command):
-        """Convert a query to its hexadecimal representation."""
-        host_hex = f"{int(self._host.split('.')[-1]):02X}"
-        module_hex = f"{int(self._module_address):02X}"
-        command_hex = '01000108CA'
-
+        
         host_bytes = bytes.fromhex(host_hex)
         module_bytes = bytes.fromhex(module_hex)
         command_bytes = bytes.fromhex(command_hex)
-        query_command = host_bytes + module_bytes + command_bytes
+        command = host_bytes + module_bytes + command_bytes
 
-        return query_command
+        return command
+
+    # def _query_to_hex(self, command):
+    #     """Convert a query to its hexadecimal representation."""
+    #     host_hex = f"{int(self._host.split('.')[-1]):02X}"
+    #     module_hex = f"{int(self._module_address):02X}"
+    #     command_hex = '01000108CA'
+
+    #     host_bytes = bytes.fromhex(host_hex)
+    #     module_bytes = bytes.fromhex(module_hex)
+    #     command_bytes = bytes.fromhex(command_hex)
+    #     query_command = host_bytes + module_bytes + command_bytes
+
+    #     return query_command
 
     def _parse_device_state(self, response):
         """Parse the state from the device's response."""
