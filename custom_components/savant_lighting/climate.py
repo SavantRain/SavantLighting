@@ -1,3 +1,4 @@
+import asyncio
 import logging, time
 from datetime import timedelta
 from homeassistant.components.climate import ClimateEntity
@@ -151,22 +152,13 @@ class SavantClimate(ClimateEntity):
         except Exception as e:
             _LOGGER.error(f"Error updating state: {e}")
 
-    def update_state(self, response_dict):
-        print('空调收到状态响应: ' + str(response_dict).replace('\\x', ''))
-    
-    
-    
-    
-    
-    
     # 以下根据light调整代码
     async def _send_state_to_device(self, command):
         """Send the command to the device."""
-        hex_command_list = self._command_to_hex(command)
-        response, is_online = await self.tcp_manager.send_command_list(hex_command_list)
-        # for command in hex_command:
-        #     await self.tcp_manager.send_command(command)
-        #     # time.sleep(5)
+        commands = self._command_to_hex(command)
+        for cmd in commands:
+            await self.tcp_manager.send_command(cmd)
+            await asyncio.sleep(0.5) 
 
     # async def _get_state_from_device(self):
     #     """Query the device for its current state."""
@@ -175,98 +167,39 @@ class SavantClimate(ClimateEntity):
     #     return response
 
     def _command_to_hex(self, command):
-        """将'开'和'关'的命令转换为十六进制格式"""
-        #指令第二个字节为IP的最后一位，如192.168.1.230，将230转化为十六进制E6在指令中进行传输
+        """将控制命令转换为十六进制格式"""
         host_hex = f"AC{int(self._host.split('.')[-1]):02X}0010"
         module_hex = f"{int(self._module_address):02X}"
         loop_hex = f"{int(self._loop_address):02X}"
         loop_hex_value = int(loop_hex, 16)
-        
-        #空调地址为32-47
+
         command_list = []
         if command == HVAC_MODE_OFF:
             loop_hex_modeaddress = loop_hex_value * 9 - 287
             loop_hex_original = f"{loop_hex_modeaddress:02X}"
-            command_hex = f"{loop_hex_original}000400002020CA"
-            
+            command_list.append(f"{loop_hex_original}000400002020CA")
         elif command == HVAC_MODE_COOL:
-            #开机模式控制需要连续发送两条指令
-            # 第一条指令用于空调开机
-            loop_hex_modeaddress = loop_hex_value * 9 - 287
-            loop_hex_original = f"{loop_hex_modeaddress:02X}"
-            command_hex = f"{loop_hex_original}000401002020CA"
-            host_bytes = bytes.fromhex(host_hex)
-            module_bytes = bytes.fromhex(module_hex)
-            command_bytes = bytes.fromhex(command_hex)
-            command = host_bytes + module_bytes + command_bytes
-            command_list.append(command)
-            
-            # 第二条指令用于开启制冷
-            loop_hex_modeaddress = loop_hex_value * 9 - 286
-            loop_hex_original = f"{loop_hex_modeaddress:02X}"
-            command_hex = f"{loop_hex_original}000405002020CA"
-            host_bytes = bytes.fromhex(host_hex)
-            module_bytes = bytes.fromhex(module_hex)
-            command_bytes = bytes.fromhex(command_hex)
-            command = host_bytes + module_bytes + command_bytes
-            command_list.append(command)
-            
-            return command_list
-        
+            command_list.append(f"{loop_hex_value * 9 - 287:02X}000401000000CA")
+            command_list.append(f"{loop_hex_value * 9 - 286:02X}000405000000CA")
         elif command == HVAC_MODE_HEAT:
-            # 第一条指令用于空调开机
-            loop_hex_modeaddress = loop_hex_value * 9 - 287
-            loop_hex_original = f"{loop_hex_modeaddress:02X}"
-            command_list.append(f"{loop_hex_original}000401002020CA")
-            # command_hex = command_list[0]
-            # 第二条指令用于开启制热
-            loop_hex_modeaddress = loop_hex_value * 9 - 286
-            loop_hex_original = f"{loop_hex_modeaddress:02X}"
-            command_list.append(f"{loop_hex_original}000408002020CA")
-            # command_hex = command_list[-1]
+            command_list.append(f"{loop_hex_value * 9 - 287:02X}000401000000CA")
+            command_list.append(f"{loop_hex_value * 9 - 286:02X}000408002020CA")
         elif command == HVAC_MODE_AUTO:
-            # 第一条指令用于空调开机
-            loop_hex_modeaddress = loop_hex_value * 9 - 287
-            loop_hex_original = f"{loop_hex_modeaddress:02X}"
-            command_list.append(f"{loop_hex_original}000401002020CA")
-            # command_hex = command_list[0]
-            # 第二条指令用于开启通风
-            loop_hex_modeaddress = loop_hex_value * 9 - 286
-            loop_hex_original = f"{loop_hex_modeaddress:02X}"
-            command_list.append(f"{loop_hex_original}000404002020CA")
-            # command_hex = command_list[-1]
+            command_list.append(f"{loop_hex_value * 9 - 287:02X}000401000000CA")
+            command_list.append(f"{loop_hex_value * 9 - 286:02X}000404000000CA")
         elif command.startswith("temp:"):
-            #温度下发指令范围16-35°
             temperature_str = command.split(":")[1]
             temperature_hex = f"{int(float(temperature_str)):02X}"
-            loop_hex_modeaddress = loop_hex_value * 9 - 284
-            loop_hex_original = f"{loop_hex_modeaddress:02X}"
-            command_hex = f"{loop_hex_original}0004{temperature_hex}002020CA"
-        elif command == "low":
-            loop_hex_modeaddress = loop_hex_value * 9 - 285
-            loop_hex_original = f"{loop_hex_modeaddress:02X}"
-            command_hex = f"{loop_hex_original}000404002020CA"
-        elif command == "medium":
-            loop_hex_modeaddress = loop_hex_value * 9 - 285
-            loop_hex_original = f"{loop_hex_modeaddress:02X}"
-            command_hex = f"{loop_hex_original}000402002020CA"
-        elif command == "high":
-            loop_hex_modeaddress = loop_hex_value * 9 - 285
-            loop_hex_original = f"{loop_hex_modeaddress:02X}"
-            command_hex = f"{loop_hex_original}000401002020CA"
-        elif command == "auto":
-            loop_hex_modeaddress = loop_hex_value * 9 - 285
-            loop_hex_original = f"{loop_hex_modeaddress:02X}"
-            command_hex = f"{loop_hex_original}000400002020CA"
+            command_list.append(f"{loop_hex_value * 9 - 284:02X}0004{temperature_hex}000000CA")
+        elif command in ["low", "medium", "high", "auto"]:
+            fan_speed_map = {"low": "04", "medium": "02", "high": "01", "auto": "00"}
+            command_list.append(f"{loop_hex_value * 9 - 285:02X}0004{fan_speed_map[command]}000000CA")
         else:
-            command_hex = ""
+            raise ValueError("Unsupported command")
         
         host_bytes = bytes.fromhex(host_hex)
         module_bytes = bytes.fromhex(module_hex)
-        command_bytes = bytes.fromhex(command_hex)
-        command = host_bytes + module_bytes + command_bytes
-
-        return command
+        return [host_bytes + module_bytes + bytes.fromhex(cmd) for cmd in command_list]
 
     # def _query_to_hex(self, command):
     #     """Convert a query to its hexadecimal representation."""
@@ -281,33 +214,66 @@ class SavantClimate(ClimateEntity):
 
     #     return query_command
 
-    def _parse_device_state(self, response):
-        """Parse the state from the device's response."""
-        if len(response) >= 12:
-            loop_hex = f"{int(self._loop_address):02X}"
-            mode_indicator = response[5]
-            temperature_indicator = response[7]
-            fan_mode_indicator = response[9]
+    def update_state(self, response_dict):
+        print('空调收到状态响应: ' + str(response_dict).replace('\\x', ''))
+        device = response_dict['device']
+        if response_dict['sub_device_type'] == "hvac_01":
+            if response_dict["data1"] == 0x01:
+                device._state = HVAC_MODE_OFF
+        elif response_dict['hvac_type'] == "hvac_02":
+            if response_dict["data1"] == 0x01:
+                device._state = HVAC_MODE_COOL
+            elif response_dict["data1"] == 0x08:
+                device._state = HVAC_MODE_HEAT
+            elif response_dict["data1"] == 0x04:
+                device._state = HVAC_MODE_AUTO
+        elif response_dict['hvac_type'] == "hvac_04":
+            device._set_temperature = float(int((response_dict["data1"]), 16) / 10)
+        elif response_dict['hvac_type'] == "hvac_09":
+            device._current_temperature = float(int((response_dict["data1"]), 16) / 10)
+        elif response_dict['hvac_type'] in "hvac_03":
+            if response_dict["data1"] == 0x01:
+                device._fan_mode = "low"
+            elif response_dict["data1"] == 0x02:
+                device._fan_mode = "medium"
+            elif response_dict["data1"] == 0x04:
+                device._fan_mode = "high"
+            elif response_dict["data1"] == 0x00:
+                device._fan_mode = "auto"
+    
+    
+    
+    
+    
+    
 
-            if mode_indicator == 0x01:
-                self._state = HVAC_MODE_OFF
-            elif mode_indicator == 0x02:
-                self._state = HVAC_MODE_COOL
-            elif mode_indicator == 0x03:
-                self._state = HVAC_MODE_HEAT
-            elif mode_indicator == 0x03:
-                self._state = HVAC_MODE_AUTO
+    # def _parse_device_state(self, response):
+    #     """Parse the state from the device's response."""
+    #     if len(response) >= 12:
+    #         loop_hex = f"{int(self._loop_address):02X}"
+    #         mode_indicator = response[5]
+    #         temperature_indicator = response[7]
+    #         fan_mode_indicator = response[9]
 
-            self._current_temperature = float(int(temperature_indicator, 16) / 10)
+    #         if mode_indicator == 0x01:
+    #             self._state = HVAC_MODE_OFF
+    #         elif mode_indicator == 0x02:
+    #             self._state = HVAC_MODE_COOL
+    #         elif mode_indicator == 0x03:
+    #             self._state = HVAC_MODE_HEAT
+    #         elif mode_indicator == 0x03:
+    #             self._state = HVAC_MODE_AUTO
 
-            if fan_mode_indicator == 0x01:
-                self._fan_mode = "low"
-            elif fan_mode_indicator == 0x02:
-                self._fan_mode = "medium"
-            elif fan_mode_indicator == 0x03:
-             self._fan_mode = "high"
-            elif fan_mode_indicator == 0x04:
-                self._fan_mode = "auto"
+    #         self._current_temperature = float(int(temperature_indicator, 16) / 10)
 
-        else:
-            _LOGGER.error("Invalid device response length: {len(response)}")
+    #         if fan_mode_indicator == 0x01:
+    #             self._fan_mode = "low"
+    #         elif fan_mode_indicator == 0x02:
+    #             self._fan_mode = "medium"
+    #         elif fan_mode_indicator == 0x03:
+    #          self._fan_mode = "high"
+    #         elif fan_mode_indicator == 0x04:
+    #             self._fan_mode = "auto"
+
+    #     else:
+    #         _LOGGER.error("Invalid device response length: {len(response)}")
