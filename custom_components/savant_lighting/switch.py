@@ -6,6 +6,7 @@ from homeassistant.core import HomeAssistant
 from .tcp_manager import *
 from .const import DOMAIN
 from .command_helper import SwitchCommand
+from .switch_8_button import SavantSwitch8Button
 
 _LOGGER = logging.getLogger(__name__)
 SCAN_INTERVAL = timedelta(seconds=60)
@@ -25,7 +26,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         )
         for device in devices if device["type"] == "switch"
     ]
-    async_add_entities(switchs, update_before_add=True)
+    
+    eight_buttons = []
+    for device in devices:
+        if device["type"] == "8button":  # 检查设备类型是否为 8 键开关
+            for button_index in range(1, 9):  # 为每个按键创建一个实体
+                eight_buttons.append(
+                    SavantSwitch8Button(
+                        name=f"{device['name']} Button {button_index}",
+                        module_address=device["module_address"],
+                        loop_address=device["loop_address"],
+                        button_index=button_index,
+                        host=device["host"],
+                        port=device["port"],
+                        tcp_manager=config["tcp_manager"],
+                    )
+                )
+
+    async_add_entities(switchs + eight_buttons, update_before_add=True)
 
 class SavantSwitch(SwitchEntity):
     """Representation of a Savant Switch."""
