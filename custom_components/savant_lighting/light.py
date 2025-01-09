@@ -50,7 +50,7 @@ class SavantLight(LightEntity):
         self._is_online = True
         self.tcp_manager = tcp_manager
         self.tcp_manager.register_callback("light", self.update_state)
-        self.command = LightCommand(host,module_address,loop_address)
+        self.command = LightCommand(host,module_address,loop_address,gradient_time)
         if self._sub_device_type == "rgb":
             self._color_temp = 370
             self._min_mireds = 152
