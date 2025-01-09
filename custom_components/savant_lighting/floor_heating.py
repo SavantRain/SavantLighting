@@ -1,15 +1,14 @@
 import asyncio
 import logging, time
 from datetime import timedelta
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.components.climate import ClimateEntity
 from homeassistant.components.climate.const import HVACMode
 from homeassistant.components.climate.const import ClimateEntityFeature
 from homeassistant.components.climate.const import FAN_AUTO,FAN_HIGH,FAN_LOW,FAN_MEDIUM
 from homeassistant.const import ATTR_TEMPERATURE,UnitOfTemperature
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from .floor_heating import SavantFloorHeating
 from .const import DOMAIN
 from .command_helper import ClimateCommand
 from .send_command import *
@@ -17,41 +16,10 @@ from .send_command import *
 _LOGGER = logging.getLogger(__name__)
 SCAN_INTERVAL = timedelta(seconds=60)
 
-SUPPORTED_HVAC_MODES = [HVACMode.OFF, HVACMode.COOL, HVACMode.HEAT, HVACMode.AUTO, HVACMode.DRY]
+SUPPORTED_HVAC_MODES = [HVACMode.OFF, HVACMode.HEAT]
 SUPPORTED_FAN_MODES = [FAN_LOW, FAN_MEDIUM, FAN_HIGH, FAN_AUTO]
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
-    """Set up Savant Climate entities from a config entry."""
-    config = hass.data[DOMAIN].get(entry.entry_id, {})
-    devices = config.get("devices", [])
-    
-    climates = [
-        SavantClimate(
-            name=device["name"],
-            module_address=device["module_address"],
-            loop_address=device["loop_address"],
-            host=device["host"],
-            port=device["port"],
-            tcp_manager=config["tcp_manager"]
-        )
-        for device in devices if device["type"] == "climate"
-    ]
-    
-    floor_heatings = [
-        SavantFloorHeating(
-            name=device["name"],
-            module_address=device["module_address"],
-            loop_address=device["loop_address"],
-            host=device["host"],
-            port=device["port"],
-            tcp_manager=config["tcp_manager"]
-        )
-        for device in devices if device["type"] == "floor_heating"
-    ]
-    
-    async_add_entities(climates + floor_heatings, update_before_add=True)
-
-class SavantClimate(ClimateEntity):
+class SavantFloorHeating(ClimateEntity):
     """Representation of a Savant Climate (AC)."""
 
     def __init__(self, name, module_address, loop_address, host, port, tcp_manager):
@@ -66,7 +34,7 @@ class SavantClimate(ClimateEntity):
         self._target_temperature = 24.0
         self._fan_mode = "auto"
         self.tcp_manager = tcp_manager
-        self.tcp_manager.register_callback("climate", self.update_state)
+        self.tcp_manager.register_callback("floor_heating", self.update_state)
         self.command = ClimateCommand(host,module_address,loop_address)
         
     async def async_added_to_hass(self):
@@ -102,7 +70,6 @@ class SavantClimate(ClimateEntity):
     def target_temperature_step(self): 
         """Return the supported step of target temperature.""" 
         return 1
-    
     @property 
     def min_temp(self): 
         """Return the minimum temperature.""" 
@@ -139,7 +106,7 @@ class SavantClimate(ClimateEntity):
             "identifiers": {(DOMAIN, f"{self._module_address}_{self._loop_address}")},
             "name": self._attr_name,
             "manufacturer": "Savant",
-            "model": "Climate Model",
+            "model": "Floor Heating Model",
         }
 
     async def async_set_hvac_mode(self, hvac_mode):
@@ -170,48 +137,8 @@ class SavantClimate(ClimateEntity):
 
     async def async_update(self):
         return
-        # # self._state = True
-        # """Fetch new state data for this climate device."""
-        # try:
-        #     response = await self._get_state_from_device()
-        #     if response:
-        #         self._parse_device_state(response)
-        # except Exception as e:
-        #     _LOGGER.error(f"Error updating state: {e}")
-
-
-    # async def _get_state_from_device(self):
-    #     """Query the device for its current state."""
-    #     hex_command = self._query_to_hex("get_state")
-    #     response, is_online = await self.tcp_manager.send_command(hex_command)
-    #     return response
 
     def update_state(self, response_dict):
-        print('空调收到状态响应: ' + str(response_dict).replace('\\x', ''))
+        print('地暖收到状态响应: ' + str(response_dict).replace('\\x', ''))
         device = response_dict['device']
-        if response_dict['hvac_type'] == "hvac_01":
-            if response_dict["data1"] == 0x00:
-                device._state = HVACMode.OFF
-        elif response_dict['hvac_type'] == "hvac_02":
-            if response_dict["data1"] == 0x01:
-                device._state = HVACMode.COOL
-            elif response_dict["data1"] == 0x08:
-                device._state = HVACMode.HEAT
-            elif response_dict["data1"] == 0x04:
-                device._state = HVACMode.AUTO
-            elif response_dict["data1"] == 0X02:
-                device._state = HVACMode.DRY
-        elif response_dict['hvac_type'] == "hvac_04":
-            device._target_temperature = response_dict["data1"]
-        elif response_dict['hvac_type'] == "hvac_09":
-            device._current_temperature = response_dict["data1"]
-        elif response_dict['hvac_type'] == "hvac_03":
-            if response_dict["data1"] == 0x04:
-                device._fan_mode = FAN_LOW
-            elif response_dict["data1"] == 0x02:
-                device._fan_mode = FAN_MEDIUM
-            elif response_dict["data1"] == 0x01:
-                device._fan_mode = FAN_HIGH
-            elif response_dict["data1"] == 0x00:
-                device._fan_mode = FAN_AUTO
         device.async_write_ha_state()

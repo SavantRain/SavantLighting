@@ -55,7 +55,9 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
                 "light_dali_001_menu": "管理【双色温DALI-01】灯光",
                 "light_dali_002_menu": "管理【双色温DALI-02】灯光",
                 "light_rgb_menu": "管理【DALI-RGB】灯光",
-                "climate_menu": "管理空调"
+                "climate_menu": "管理空调",
+                "floor_heating_menu": "管理地暖",
+                "fresh_air_menu": "管理新风设备",
             },
             description_placeholders={"desc": "选择操作来管理子设备"},
         )
@@ -75,13 +77,17 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
     async def async_step_light_dali_002_menu(self, user_input=None):
         return await self.async_step_device_menu(device_type="light",user_input=user_input, sub_device_type="DALI-02")
 
-
     async def async_step_switch_menu(self, user_input=None):
         return await self.async_step_device_menu(device_type="switch", user_input=user_input)
 
     async def async_step_climate_menu(self, user_input=None):
         return await self.async_step_device_menu(device_type="climate", user_input=user_input)
         
+    async def async_step_floor_heating_menu(self, user_input=None):
+        return await self.async_step_device_menu(device_type="floor_heating", user_input=user_input)
+    
+    async def async_step_fresh_air_menu(self, user_input=None):
+        return await self.async_step_device_menu(device_type="fresh_air", user_input=user_input)
     
     async def async_step_device_menu(self, user_input=None, device_type=None, sub_device_type=None):
         """Second level menu: Add, configure, or delete devices."""
@@ -131,7 +137,8 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
             )
             await self._register_device_and_entity(device_data, device_type=self.device_type)
             await self.hass.config_entries.async_reload(self.config_entry.entry_id)
-            return self.async_create_entry(title=f"{self.device_type.capitalize()} Added",data=device_data)
+            result = self.async_create_entry(title=f"{self.device_type.capitalize()} Added",data=device_data)
+            return result
 
         # 添加设备表单，包含名称字段
         if self.device_type == 'light':
@@ -254,7 +261,7 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
     async def _register_device_and_entity(self, device_data, device_type):
         """Register device in Home Assistant's device registry."""
         device_registry = dr.async_get(self.hass)
-        if not isinstance(device_type, str) or device_type not in ["light", "switch","climate"]:
+        if not isinstance(device_type, str) or device_type not in ["light", "switch","climate","floor_heating","fresh_air"]:
             raise ValueError(f"Invalid device type provided: {device_type}")
         model_name = device_type.capitalize()
         device_registry.async_get_or_create(

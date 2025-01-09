@@ -188,3 +188,12 @@ class ClimateCommand:
 
     def _command_to_bytes(self, command_hex):
         return bytes.fromhex(command_hex)
+    
+    
+class FanCommand:
+    def __init__(self, host, module_address, loop_address):
+        self.host_hex = f"AC{int(host.split('.')[-1]):02X}0010"
+        self.module_hex = f"{int(module_address):02X}"
+        self.loop_hex = f"{int(loop_address):02X}"
+        self.host_bytes = bytes.fromhex(self.host_hex)
+        self.module_bytes = bytes.fromhex(self.module_hex)
