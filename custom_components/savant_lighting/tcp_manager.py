@@ -180,7 +180,7 @@ class TCPConnectionManager:
             "data4": response_str[11],
             "device_type":"",
             "sub_device_type":"",
-            "hvac_type": response_str[5],
+            "hvac_type": "",
             "module_address": response_str[4],
             "loop_address": response_str[5],
             "unique_id":"",
@@ -215,28 +215,33 @@ class TCPConnectionManager:
         
         elif response_dict["data2"] == 0x00 and response_dict["data4"] == 0x20 and response_dict["loop_address"] in hvac_off:
             response_dict["device_type"] = "climate"
-            response_dict["loop_address"] = (response_dict["loop_address"] + 287) // 9
-            response_dict["sub_device_type"] = "hvac_01"
+            # response_dict["loop_address"] = (response_dict["loop_address"] + 287) // 9
+            response_dict["loop_address"] = response_dict["data3"]
+            response_dict["hvac_type"] = "hvac_01"
         
         elif response_dict["data2"] == 0x00 and response_dict["data4"] == 0x20 and response_dict["loop_address"] in hvac_mode:
             response_dict["device_type"] = "climate"
-            response_dict["loop_address"] = (response_dict["loop_address"] + 286) // 9
-            response_dict["sub_device_type"] = "hvac_02"
+            # response_dict["loop_address"] = (response_dict["loop_address"] + 286) // 9
+            response_dict["loop_address"] = response_dict["data3"]
+            response_dict["hvac_type"] = "hvac_02"
 
         elif response_dict["data2"] == 0x00 and response_dict["data4"] == 0x20 and response_dict["loop_address"] in hvac_fan:
             response_dict["device_type"] = "climate"
-            response_dict["loop_address"] = (response_dict["loop_address"] + 285) // 9
-            response_dict["sub_device_type"] = "hvac_03"
+            # response_dict["loop_address"] = (response_dict["loop_address"] + 285) // 9
+            response_dict["loop_address"] = response_dict["data3"]
+            response_dict["hvac_type"] = "hvac_03"
         
         elif response_dict["data2"] == 0x00 and response_dict["data4"] == 0x20 and response_dict["loop_address"] in hvac_current_set_point:
             response_dict["device_type"] = "climate"
-            response_dict["loop_address"] = (response_dict["loop_address"] + 284) // 9
-            response_dict["sub_device_type"] = "hvac_04"
+            # response_dict["loop_address"] = (response_dict["loop_address"] + 284) // 9
+            response_dict["loop_address"] = response_dict["data3"]
+            response_dict["hvac_type"] = "hvac_04"
         
         elif response_dict["data2"] == 0x00 and response_dict["data4"] == 0x20 and response_dict["loop_address"] in hvac_current_temperature:
             response_dict["device_type"] = "climate"
-            response_dict["loop_address"] = (response_dict["loop_address"] + 279) // 9
-            response_dict["sub_device_type"] = "hvac_09"
+            # response_dict["loop_address"] = (response_dict["loop_address"] + 279) // 9
+            response_dict["loop_address"] = response_dict["data3"]
+            response_dict["hvac_type"] = "hvac_09"
 
         unique_id = f"{response_dict["module_address"]}_{response_dict["loop_address"]}_{response_dict["device_type"]}"
         response_dict['device'] = self.get_device_by_unique_id(response_dict["device_type"],unique_id)

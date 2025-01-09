@@ -7,6 +7,7 @@ from homeassistant.components.climate.const import (
     HVAC_MODE_COOL,
     HVAC_MODE_HEAT,
     HVAC_MODE_AUTO,
+    HVAC_MODE_DRY,
     SUPPORT_FAN_MODE,
     SUPPORT_TARGET_TEMPERATURE,
 )
@@ -22,7 +23,7 @@ from .send_command import *
 _LOGGER = logging.getLogger(__name__)
 SCAN_INTERVAL = timedelta(seconds=60)
 
-SUPPORTED_HVAC_MODES = [HVAC_MODE_OFF, HVAC_MODE_COOL, HVAC_MODE_HEAT, HVAC_MODE_AUTO]
+SUPPORTED_HVAC_MODES = [HVAC_MODE_OFF, HVAC_MODE_COOL, HVAC_MODE_HEAT, HVAC_MODE_AUTO, HVAC_MODE_DRY]
 SUPPORTED_FAN_MODES = ["low", "medium", "high", "auto"]
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
@@ -63,7 +64,7 @@ class SavantClimate(ClimateEntity):
         
     async def async_added_to_hass(self):
         self.hass.async_create_task(self.async_update())
-        self.async_write_ha_state()    
+        self.async_write_ha_state()
         
     @property
     def unique_id(self):
@@ -89,7 +90,20 @@ class SavantClimate(ClimateEntity):
     def temperature_unit(self):
         """Return the unit of measurement."""
         return TEMP_CELSIUS
-
+    
+    @property 
+    def target_temperature_step(self): 
+        """Return the supported step of target temperature.""" 
+        return 1
+    @property 
+    def min_temp(self): 
+        """Return the minimum temperature.""" 
+        return 16 
+    @property 
+    def max_temp(self): 
+        """Return the maximum temperature.""" 
+        return 35
+    
     @property
     def hvac_mode(self):
         """Return the current HVAC mode."""
@@ -119,12 +133,12 @@ class SavantClimate(ClimateEntity):
             "manufacturer": "Savant",
             "model": "Climate Model",
         }
-        
+
     async def async_set_hvac_mode(self, hvac_mode):
         """Set the HVAC mode."""
         if hvac_mode in SUPPORTED_HVAC_MODES:
             self._state = hvac_mode
-            await self._send_state_to_device(hvac_mode)
+            await self._send_state_to_device(hvac_mode,'hvac_mode')
             self.async_write_ha_state()
 
 
@@ -132,7 +146,7 @@ class SavantClimate(ClimateEntity):
         """Set the fan mode."""
         if fan_mode in SUPPORTED_FAN_MODES:
             self._fan_mode = fan_mode
-            await self._send_state_to_device(fan_mode)
+            await self._send_state_to_device(fan_mode,'fan_mode')
             self.async_write_ha_state()
 
     async def async_set_temperature(self, **kwargs):
@@ -140,22 +154,24 @@ class SavantClimate(ClimateEntity):
         temperature = kwargs.get(ATTR_TEMPERATURE)
         if temperature is not None:
             self._target_temperature = temperature
-            await self._send_state_to_device(f"temp:{temperature}")
+            await self._send_state_to_device(f"temp:{temperature}", 'temperature')
             self.async_write_ha_state()
 
     async def async_update(self):
-        """Fetch new state data for this climate device."""
-        try:
-            response = await self._get_state_from_device()
-            if response:
-                self._parse_device_state(response)
-        except Exception as e:
-            _LOGGER.error(f"Error updating state: {e}")
+        return
+        # # self._state = True
+        # """Fetch new state data for this climate device."""
+        # try:
+        #     response = await self._get_state_from_device()
+        #     if response:
+        #         self._parse_device_state(response)
+        # except Exception as e:
+        #     _LOGGER.error(f"Error updating state: {e}")
 
     # 以下根据light调整代码
-    async def _send_state_to_device(self, command):
+    async def _send_state_to_device(self, command, command_type):
         """Send the command to the device."""
-        commands = self._command_to_hex(command)
+        commands = self._command_to_hex(command, command_type)
         for cmd in commands:
             await self.tcp_manager.send_command(cmd)
             await asyncio.sleep(0.5) 
@@ -165,8 +181,7 @@ class SavantClimate(ClimateEntity):
     #     hex_command = self._query_to_hex("get_state")
     #     response, is_online = await self.tcp_manager.send_command(hex_command)
     #     return response
-
-    def _command_to_hex(self, command):
+    def _command_to_hex(self, command, command_type):
         """将控制命令转换为十六进制格式"""
         host_hex = f"AC{int(self._host.split('.')[-1]):02X}0010"
         module_hex = f"{int(self._module_address):02X}"
@@ -174,26 +189,32 @@ class SavantClimate(ClimateEntity):
         loop_hex_value = int(loop_hex, 16)
 
         command_list = []
-        if command == HVAC_MODE_OFF:
-            loop_hex_modeaddress = loop_hex_value * 9 - 287
-            loop_hex_original = f"{loop_hex_modeaddress:02X}"
-            command_list.append(f"{loop_hex_original}000400002020CA")
-        elif command == HVAC_MODE_COOL:
-            command_list.append(f"{loop_hex_value * 9 - 287:02X}000401000000CA")
-            command_list.append(f"{loop_hex_value * 9 - 286:02X}000405000000CA")
-        elif command == HVAC_MODE_HEAT:
-            command_list.append(f"{loop_hex_value * 9 - 287:02X}000401000000CA")
-            command_list.append(f"{loop_hex_value * 9 - 286:02X}000408002020CA")
-        elif command == HVAC_MODE_AUTO:
-            command_list.append(f"{loop_hex_value * 9 - 287:02X}000401000000CA")
-            command_list.append(f"{loop_hex_value * 9 - 286:02X}000404000000CA")
-        elif command.startswith("temp:"):
-            temperature_str = command.split(":")[1]
-            temperature_hex = f"{int(float(temperature_str)):02X}"
-            command_list.append(f"{loop_hex_value * 9 - 284:02X}0004{temperature_hex}000000CA")
-        elif command in ["low", "medium", "high", "auto"]:
-            fan_speed_map = {"low": "04", "medium": "02", "high": "01", "auto": "00"}
-            command_list.append(f"{loop_hex_value * 9 - 285:02X}0004{fan_speed_map[command]}000000CA")
+        if command_type == "hvac_mode":
+            if command ==  HVAC_MODE_OFF:
+                loop_hex_modeaddress = loop_hex_value * 9 - 287
+                loop_hex_original = f"{loop_hex_modeaddress:02X}"
+                command_list.append(f"{loop_hex_original}000400002020CA")
+            elif command == HVAC_MODE_COOL:
+                command_list.append(f"{loop_hex_value * 9 - 287:02X}000401000000CA")
+                command_list.append(f"{loop_hex_value * 9 - 286:02X}000405000000CA")
+            elif command == HVAC_MODE_HEAT:
+                command_list.append(f"{loop_hex_value * 9 - 287:02X}000401000000CA")
+                command_list.append(f"{loop_hex_value * 9 - 286:02X}000408002020CA")
+            elif command == HVAC_MODE_AUTO:
+                command_list.append(f"{loop_hex_value * 9 - 287:02X}000401000000CA")
+                command_list.append(f"{loop_hex_value * 9 - 286:02X}000404000000CA")
+            elif command == HVAC_MODE_DRY:
+                command_list.append(f"{loop_hex_value * 9 - 287:02X}000401000000CA")
+                command_list.append(f"{loop_hex_value * 9 - 286:02X}000402000000CA")
+        elif command_type == "temperature":
+            if command.startswith("temp:"):
+                temperature_str = command.split(":")[1]
+                temperature_hex = f"{int(float(temperature_str)):02X}"
+                command_list.append(f"{loop_hex_value * 9 - 284:02X}0004{temperature_hex}000000CA")
+        elif command_type == "fan_mode":
+            if command in ["low", "medium", "high", "auto"]:
+                fan_speed_map = {"low": "04", "medium": "02", "high": "01", "auto": "00"}
+                command_list.append(f"{loop_hex_value * 9 - 285:02X}0004{fan_speed_map[command]}000000CA")
         else:
             raise ValueError("Unsupported command")
         
@@ -217,8 +238,8 @@ class SavantClimate(ClimateEntity):
     def update_state(self, response_dict):
         print('空调收到状态响应: ' + str(response_dict).replace('\\x', ''))
         device = response_dict['device']
-        if response_dict['sub_device_type'] == "hvac_01":
-            if response_dict["data1"] == 0x01:
+        if response_dict['hvac_type'] == "hvac_01":
+            if response_dict["data1"] == 0x00:
                 device._state = HVAC_MODE_OFF
         elif response_dict['hvac_type'] == "hvac_02":
             if response_dict["data1"] == 0x01:
@@ -227,26 +248,23 @@ class SavantClimate(ClimateEntity):
                 device._state = HVAC_MODE_HEAT
             elif response_dict["data1"] == 0x04:
                 device._state = HVAC_MODE_AUTO
+            elif response_dict["data1"] == 0X02:
+                device._state = HVAC_MODE_DRY
         elif response_dict['hvac_type'] == "hvac_04":
-            device._set_temperature = float(int((response_dict["data1"]), 16) / 10)
+            device._target_temperature = response_dict["data1"]
         elif response_dict['hvac_type'] == "hvac_09":
-            device._current_temperature = float(int((response_dict["data1"]), 16) / 10)
-        elif response_dict['hvac_type'] in "hvac_03":
-            if response_dict["data1"] == 0x01:
+            device._current_temperature = response_dict["data1"]
+        elif response_dict['hvac_type'] == "hvac_03":
+            if response_dict["data1"] == 0x04:
                 device._fan_mode = "low"
             elif response_dict["data1"] == 0x02:
                 device._fan_mode = "medium"
-            elif response_dict["data1"] == 0x04:
+            elif response_dict["data1"] == 0x01:
                 device._fan_mode = "high"
             elif response_dict["data1"] == 0x00:
                 device._fan_mode = "auto"
+        device.async_write_ha_state()
     
-    
-    
-    
-    
-    
-
     # def _parse_device_state(self, response):
     #     """Parse the state from the device's response."""
     #     if len(response) >= 12:
