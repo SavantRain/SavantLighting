@@ -44,7 +44,7 @@ class SavantFloorHeating(ClimateEntity):
     @property
     def unique_id(self):
         """Return a unique ID for this climate entity."""
-        return f"{self._module_address}_{self._loop_address}_climate"
+        return f"{self._module_address}_{self._loop_address}_floor_heating"
     
     @property
     def supported_features(self):
@@ -112,25 +112,17 @@ class SavantFloorHeating(ClimateEntity):
     async def async_set_hvac_mode(self, hvac_mode):
         if hvac_mode in SUPPORTED_HVAC_MODES:
             self._state = hvac_mode
-            command = self.command.hvac_mode(hvac_mode)
+            command = self.command.floor_heat_mode(hvac_mode)
             for cmd in command:
                 await self.tcp_manager.send_command(cmd)
                 await asyncio.sleep(0.5)
-            self.async_write_ha_state()
-
-    async def async_set_fan_mode(self, fan_mode):
-        if fan_mode in SUPPORTED_FAN_MODES:
-            self._fan_mode = fan_mode
-            command = self.command.fan_mode(fan_mode)
-            await self.tcp_manager.send_command(command)
-            await asyncio.sleep(0.5)
             self.async_write_ha_state()
 
     async def async_set_temperature(self, **kwargs):
         temperature = kwargs.get(ATTR_TEMPERATURE)
         if temperature is not None:
             self._target_temperature = temperature
-            command = self.command.temperature(f"temp:{temperature}")
+            command = self.command.floor_heat_temperature(f"temp:{temperature}")
             await self.tcp_manager.send_command(command)
             await asyncio.sleep(0.5)
             self.async_write_ha_state()
@@ -141,4 +133,13 @@ class SavantFloorHeating(ClimateEntity):
     def update_state(self, response_dict):
         print('地暖收到状态响应: ' + str(response_dict).replace('\\x', ''))
         device = response_dict['device']
+        if response_dict['hvac_type'] == "hvac_05":
+            if response_dict["data1"] == 0x00:
+                device._state = HVACMode.OFF
+            elif response_dict["data1"] in (0X01,0X11):
+                device._state = HVACMode.HEAT
+        elif response_dict['hvac_type'] == "hvac_06":
+            device._target_temperature = response_dict["data1"]
+        elif response_dict['hvac_type'] == "hvac_09":
+            device._current_temperature = response_dict["data1"]
         device.async_write_ha_state()

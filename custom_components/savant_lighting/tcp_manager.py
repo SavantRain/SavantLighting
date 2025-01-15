@@ -149,8 +149,14 @@ class TCPConnectionManager:
             return None
         entity_id = entity_entry.entity_id
         
-        device = self.hass.data[device_type].get_entity(entity_id)
 
+        if device_type in self.hass.data:
+            device = self.hass.data[device_type].get_entity(entity_id)
+        elif device_type == 'floor_heating':
+            device = self.hass.data['climate'].get_entity(entity_id)
+        else:
+            _LOGGER.error(f"未找到 entity_id 为 {entity_id} 的设备实例")
+            return None
         if device is None:
             _LOGGER.error(f"未找到 entity_id 为 {entity_id} 的设备实例")
             return None
@@ -167,8 +173,8 @@ class TCPConnectionManager:
         hvac_mode = [0x02, 0x0B, 0x14, 0x1D, 0x26, 0x2F, 0x38, 0x41, 0x4A, 0x53, 0x5C, 0x65, 0x6E, 0x77, 0x80, 0x89]
         hvac_fan = [0x03, 0x0C, 0x15, 0x1E, 0x27, 0x30, 0x39, 0x42, 0x4B, 0x54, 0x5D, 0x66, 0x6F, 0x78, 0x81, 0x8A]
         hvac_current_set_point = [0x04, 0x0D, 0x16, 0x1F, 0x28, 0x31, 0x3A, 0x43, 0x4C, 0x55, 0x5E, 0x67, 0x70, 0x79, 0x82, 0x8B]
-        hvac_5 = [0x05, 0x0E, 0x17, 0x20, 0x29, 0x32, 0x3B, 0x44, 0x4D, 0x56, 0x5F, 0x68, 0x71, 0x7A, 0x83, 0x8C]
-        hvac_6 = [0x06, 0x0F, 0x18, 0x21, 0x2A, 0x33, 0x3C, 0x45, 0x4E, 0x57, 0x60, 0x69, 0x72, 0x7B, 0x84, 0x8D]
+        floor_heat_mode = [0x05, 0x0E, 0x17, 0x20, 0x29, 0x32, 0x3B, 0x44, 0x4D, 0x56, 0x5F, 0x68, 0x71, 0x7A, 0x83, 0x8C]
+        floor_heat_temperature = [0x06, 0x0F, 0x18, 0x21, 0x2A, 0x33, 0x3C, 0x45, 0x4E, 0x57, 0x60, 0x69, 0x72, 0x7B, 0x84, 0x8D]
         hvac_7 = [0x07, 0x10, 0x19, 0x22, 0x2B, 0x34, 0x3D, 0x46, 0x4F, 0x58, 0x61, 0x6A, 0x73, 0x7C, 0x85, 0x8E]
         hvac_8 = [0x08, 0x11, 0x1A, 0x23, 0x2C, 0x35, 0x3E, 0x47, 0x50, 0x59, 0x62, 0x6B, 0x74, 0x7D, 0x86, 0x8F]
         hvac_current_temperature = [0x09, 0x12, 0x1B, 0x24, 0x2D, 0x36, 0x3F, 0x48, 0x51, 0x5A, 0x63, 0x6C, 0x75, 0x7E, 0x87, 0x90]
@@ -205,7 +211,7 @@ class TCPConnectionManager:
             if response_dict["data4"] == 0x12:
                 response_dict["loop_address"] = response_dict["loop_address"] - 1
 
-        elif response_dict["data3"] == 0x00 and response_dict["data4"] == 0x15:
+        elif response_dict["data4"] == 0x15:
             response_dict["device_type"] = "light"
             response_dict["sub_device_type"] = "DALI-02"
         
@@ -238,10 +244,23 @@ class TCPConnectionManager:
             response_dict["hvac_type"] = "hvac_04"
         
         elif response_dict["data2"] == 0x00 and response_dict["data4"] == 0x20 and response_dict["loop_address"] in hvac_current_temperature:
-            response_dict["device_type"] = "climate"
-            # response_dict["loop_address"] = (response_dict["loop_address"] + 279) // 9
+            # hvac_fhs = ["climate", "floor_heating"]
+            # for hvac_fh in hvac_fhs:
+            #     response_dict["device_type"] = hvac_fh
+                response_dict["device_type"] = "climate"
+                response_dict["loop_address"] = response_dict["data3"]
+                response_dict["hvac_type"] = "hvac_09"
+
+            
+        elif response_dict["data2"] == 0x00 and response_dict["data4"] == 0x21 and response_dict["loop_address"] in floor_heat_mode:
+            response_dict["device_type"] = "floor_heating"
             response_dict["loop_address"] = response_dict["data3"]
-            response_dict["hvac_type"] = "hvac_09"
+            response_dict["hvac_type"] = "hvac_05"
+
+        elif response_dict["data2"] == 0x00 and response_dict["data4"] == 0x21 and response_dict["loop_address"] in floor_heat_temperature:
+            response_dict["device_type"] = "floor_heating"
+            response_dict["loop_address"] = response_dict["data3"]
+            response_dict["hvac_type"] = "hvac_06"
 
         unique_id = f"{response_dict["module_address"]}_{response_dict["loop_address"]}_{response_dict["device_type"]}"
         response_dict['device'] = self.get_device_by_unique_id(response_dict["device_type"],unique_id)

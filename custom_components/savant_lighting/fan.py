@@ -88,26 +88,62 @@ class SavantFreshAirFan(FanEntity):
         """Turn the fan on."""
         self._is_on = True
         if speed:
-            self._speed = speed
+            self._speed = self._map_speed_to_percent(speed)
         else:
             self._speed = "auto"  # Default to auto if no speed is specified
-        await self._send_command(f"on:{self._speed}")
+        hex_command = self._generate_hex_command("on", self._speed)
+        await self.tcp_manager.send_command(hex_command)
         self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs):
         """Turn the fan off."""
         self._is_on = False
-        await self._send_command("off")
+        hex_command = self._generate_hex_command("off")
+        await self.tcp_manager.send_command(hex_command)
         self.async_write_ha_state()
 
-    async def async_set_speed(self, speed):
-        """Set the speed of the fan."""
-        if speed in SUPPORTED_SPEEDS:
-            self._speed = speed
-            if self._is_on:
-                hex_command = self.command.to_hex(f"on:{self._speed}")
-                await self.tcp_manager.send_command(hex_command)
-            self.async_write_ha_state()
+    async def async_set_speed(self, speed: str):
+        """Set the speed of the fan based on the percentage."""
+        self._speed = self._map_speed_to_percent(speed)
+        if self._is_on:
+            hex_command = self._generate_hex_command("on", self._speed)
+            await self.tcp_manager.send_command(hex_command)
+        self.async_write_ha_state()
+
+    def _map_speed_to_percent(self, speed: str) -> str:
+        """Map the speed percentage to the supported speed levels."""
+        speed_percent = int(speed.strip('%'))  # Remove the '%' sign and convert to integer
+        if 1 <= speed_percent <= 30:
+            return "low"
+        elif 31 <= speed_percent <= 60:
+            return "medium"
+        elif 61 <= speed_percent <= 100:
+            return "high"
+        else:
+            return "auto"  # Default to auto if the speed is out of range
+
+    def _generate_hex_command(self, action: str, speed: str = None) -> bytes:
+        """将控制命令转换为十六进制格式"""
+        host_hex = f"AC{int(self._host.split('.')[-1]):02X}0010"
+        module_hex = f"{int(self._module_address):02X}"
+        loop_hex = f"{int(self._loop_address):02X}"
+        loop_hex_value = int(loop_hex, 16)
+
+        command_list = []
+        if action == "on":
+            if speed == "high":
+                command_list.append(f"{loop_hex_value * 9 - 281:02X}000401000000CA")
+                command_list.append(f"{loop_hex_value * 9 - 280:02X}000403000000CA")
+            elif speed == "medium":
+                command_list.append(f"{loop_hex_value * 9 - 281:02X}000401000000CA")
+                command_list.append(f"{loop_hex_value * 9 - 280:02X}000402000000CA")
+            elif speed == "low":
+                command_list.append(f"{loop_hex_value * 9 - 281:02X}000401000000CA")
+                command_list.append(f"{loop_hex_value * 9 - 280:02X}000401000000CA")
+        elif action == "off":
+            command_list.append(f"{loop_hex_value * 9 - 281:02X}000400000000CA")
+        else:
+            raise ValueError("Unsupported action")
 
     def update_state(self, response_dict):
         """Update the state of the fan based on the response."""

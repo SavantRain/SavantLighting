@@ -185,6 +185,26 @@ class ClimateCommand:
         fan_speed_map = {"low": "04", "medium": "02", "high": "01", "auto": "00"}
         command_hex = f"{int(self.loop_hex, 16) * 9 - 285:02X}0004{fan_speed_map[command]}000000CA"
         return self.host_bytes + self.module_bytes + bytes.fromhex(command_hex)
+    
+    def floor_heat_mode(self, command):
+        from homeassistant.components.climate.const import (
+            HVAC_MODE_OFF,HVAC_MODE_COOL,HVAC_MODE_HEAT,HVAC_MODE_AUTO,HVAC_MODE_DRY)
+        loop_hex_value = int(self.loop_hex, 16)
+        command_list = []
+        if command == HVAC_MODE_OFF:
+            loop_hex_modeaddress = loop_hex_value * 9 - 283
+            loop_hex_original = f"{loop_hex_modeaddress:02X}"
+            command_list.append(f"{loop_hex_original}000400002020CA")
+        elif command == HVAC_MODE_HEAT:
+            command_list.append(f"{loop_hex_value * 9 - 283:02X}000401000000CA")
+        return [self.host_bytes + self.module_bytes + bytes.fromhex(cmd) for cmd in command_list]
+    
+    def floor_heat_temperature(self, temperature):
+        if temperature.startswith("temp:"):
+            temperature_str = temperature.split(":")[1]
+            temperature_hex = f"{int(float(temperature_str)):02X}"
+            command_hex = f"{int(self.loop_hex, 16) * 9 - 282:02X}0004{temperature_hex}000000CA"
+            return self.host_bytes + self.module_bytes + bytes.fromhex(command_hex)
 
     def _command_to_bytes(self, command_hex):
         return bytes.fromhex(command_hex)
