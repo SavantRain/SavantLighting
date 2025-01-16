@@ -43,8 +43,9 @@ class SavantFreshAirFan(FanEntity):
         self._loop_address = loop_address
         self._host = host
         self._port = port
-        self._is_on = False
+        self._state = False
         self._speed = "auto"  # Default speed
+        self._speed_percentage = 0
         self.tcp_manager = tcp_manager
         self.tcp_manager.register_callback("fresh_air", self.update_state)
         self.command = FanCommand(host, module_address, loop_address)
@@ -56,14 +57,18 @@ class SavantFreshAirFan(FanEntity):
 
     @property
     def is_on(self):
-        """Return whether the fan is on or off."""
-        return self._is_on
+        """Return true if the light is on."""
+        return self._state
 
     @property
     def speed(self):
         """Return the current speed of the fan."""
         return self._speed
-
+    
+    @property
+    def percent(self):
+        return self._speed_percentage
+    
     @property
     def speed_list(self):
         """Return the list of supported speeds."""
@@ -84,45 +89,52 @@ class SavantFreshAirFan(FanEntity):
             "model": "Fresh Air Model",
         }
 
-    async def async_turn_on(self, speed=None, **kwargs):
+    async def async_turn_on(self, percentage, preset_mode, **kwargs):
         """Turn the fan on."""
-        self._is_on = True
-        if speed:
-            self._speed = self._map_speed_to_percent(speed)
-        else:
-            self._speed = "auto"  # Default to auto if no speed is specified
-        hex_command = self._generate_hex_command("on", self._speed)
-        await self.tcp_manager.send_command(hex_command)
+        self._state = True
+        self._speed = self._map_speed_to_percent(50)
+        hex_command = self._command_to_hex("on", self._speed)
+        await self.tcp_manager.send_command_list(hex_command)
+        await asyncio.sleep(1)
         self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs):
         """Turn the fan off."""
-        self._is_on = False
-        hex_command = self._generate_hex_command("off")
-        await self.tcp_manager.send_command(hex_command)
+        self._state = False
+        hex_command = self._command_to_hex("off")
+        await self.tcp_manager.send_command_list(hex_command)
+        await asyncio.sleep(1)
         self.async_write_ha_state()
 
-    async def async_set_speed(self, speed: str):
-        """Set the speed of the fan based on the percentage."""
+    async def async_set_percentage(self, **kwargs):
+        speed = kwargs['percentage']
+        #IF 1<
         self._speed = self._map_speed_to_percent(speed)
-        if self._is_on:
-            hex_command = self._generate_hex_command("on", self._speed)
-            await self.tcp_manager.send_command(hex_command)
+        if self._state:
+            hex_command = self._command_to_hex("on", self._speed)
+            await self.tcp_manager.send_command_list(hex_command)
+            await asyncio.sleep(1)
         self.async_write_ha_state()
 
-    def _map_speed_to_percent(self, speed: str) -> str:
+    async def async_set_speed(self, speed):
+        """Set the speed of the fan based on the percentage."""
+        self._speed = speed
+        self.async_write_ha_state()
+
+    def _map_speed_to_percent(self, speed) -> str:
         """Map the speed percentage to the supported speed levels."""
-        speed_percent = int(speed.strip('%'))  # Remove the '%' sign and convert to integer
-        if 1 <= speed_percent <= 30:
+        if 1 <= speed <= 30:
             return "low"
-        elif 31 <= speed_percent <= 60:
+        elif 31 <= speed <= 70:
             return "medium"
-        elif 61 <= speed_percent <= 100:
+        elif 71 <= speed <= 100:
             return "high"
+        elif speed == 0:
+            return "speed_off"
         else:
             return "auto"  # Default to auto if the speed is out of range
 
-    def _generate_hex_command(self, action: str, speed: str = None) -> bytes:
+    def _command_to_hex(self, action: str, speed: str = None) -> bytes:
         """将控制命令转换为十六进制格式"""
         host_hex = f"AC{int(self._host.split('.')[-1]):02X}0010"
         module_hex = f"{int(self._module_address):02X}"
@@ -140,14 +152,40 @@ class SavantFreshAirFan(FanEntity):
             elif speed == "low":
                 command_list.append(f"{loop_hex_value * 9 - 281:02X}000401000000CA")
                 command_list.append(f"{loop_hex_value * 9 - 280:02X}000401000000CA")
+            elif speed == "speed_off":
+                command_list.append(f"{loop_hex_value * 9 - 281:02X}000401000000CA")
+                command_list.append(f"{loop_hex_value * 9 - 280:02X}000400000000CA")
         elif action == "off":
             command_list.append(f"{loop_hex_value * 9 - 281:02X}000400000000CA")
         else:
             raise ValueError("Unsupported action")
+        
+        host_bytes = bytes.fromhex(host_hex)
+        module_bytes = bytes.fromhex(module_hex)
+        return [host_bytes + module_bytes + bytes.fromhex(cmd) for cmd in command_list]
 
     def update_state(self, response_dict):
-        """Update the state of the fan based on the response."""
-        _LOGGER.debug(f"Fresh Air Fan received state response: {response_dict}")
-        self._is_on = response_dict.get("state") == STATE_ON
-        self._speed = response_dict.get("speed", self._speed)
-        self.async_write_ha_state()
+        print('新风收到状态响应: ' + str(response_dict).replace('\\x', ''))
+        device = response_dict['device']
+        if response_dict['hvac_type'] == "hvac_07":
+            if response_dict["data1"] == 0x00:
+                device._state = False
+        elif response_dict['hvac_type'] == "hvac_08":
+            device._state = True
+            if response_dict["data1"] == 0x01:
+                device._speed = 'low'
+            elif response_dict["data1"] == 0x02:
+                device._speed = 'medium'
+            elif response_dict["data1"] == 0x03:
+                device._speed = 'high'
+            elif response_dict["data1"] == 0x00:
+                device._speed = 'auto'
+        device.async_write_ha_state()
+        print(device._speed)
+        print('')
+        # """Update the state of the fan based on the response."""
+        # _LOGGER.debug(f"Fresh Air Fan received state response: {response_dict}")
+        # self._is_on = response_dict.get("state") == STATE_ON
+        # self._speed = response_dict.get("speed", self._speed)
+
+        
