@@ -108,7 +108,6 @@ class SavantFreshAirFan(FanEntity):
 
     async def async_set_percentage(self, **kwargs):
         speed = kwargs['percentage']
-        #IF 1<
         self._speed = self._map_speed_to_percent(speed)
         if self._state:
             hex_command = self._command_to_hex("on", self._speed)
@@ -174,14 +173,19 @@ class SavantFreshAirFan(FanEntity):
             device._state = True
             if response_dict["data1"] == 0x01:
                 device._speed = 'low'
+                device._speed_percentage = 20
             elif response_dict["data1"] == 0x02:
                 device._speed = 'medium'
+                device._speed_percentage = 50
             elif response_dict["data1"] == 0x03:
                 device._speed = 'high'
+                device._speed_percentage = 80
             elif response_dict["data1"] == 0x00:
                 device._speed = 'auto'
+                device._speed_percentage = 0
         device.async_write_ha_state()
         print(device._speed)
+        print(device._speed_percentage)
         print('')
         # """Update the state of the fan based on the response."""
         # _LOGGER.debug(f"Fresh Air Fan received state response: {response_dict}")
