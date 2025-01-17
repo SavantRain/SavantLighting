@@ -158,6 +158,8 @@ class TCPConnectionManager:
             device = self.hass.data['fan'].get_entity(entity_id)
         elif device_type == 'curtain':
             device = self.hass.data['cover'].get_entity(entity_id)
+        elif device_type == 'scene_switch':
+            device = self.hass.data['switch'].get_entity(entity_id)
         else:
             _LOGGER.error(f"未找到 entity_id 为 {entity_id} 的设备实例")
             return None
