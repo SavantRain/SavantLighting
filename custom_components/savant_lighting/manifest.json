@@ -1,14 +1,15 @@
 {
   "domain": "savant_lighting",
-  "name": "Savant Lighting",
+  "name": "Savant Lighting Smart Home",
   "version": "1.0.0",
   "documentation": "https://github.com/SavantRain/SavantLighting",
   "requirements": [],
   "dependencies": [],
   "config_flow": true,
-  "codeowners": ["@laotycoon"],
+  "codeowners": ["@savant_lighting"],
   "iot_class": "local_push",
   "translations": ["strings.json"],
   "integration_type": "hub",
-  "supported_platforms": ["light", "switch", "climate", "floor_heating", "fresh_air", "fan"]
+  "supported_platforms": ["light", "switch", "climate", "floor_heating", "fresh_air", "fan"],
+  "issue_tracker": "https://github.com/SavantRain/SavantLightingk/issues"
 }
