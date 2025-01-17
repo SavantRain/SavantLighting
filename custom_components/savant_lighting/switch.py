@@ -7,6 +7,7 @@ from .tcp_manager import *
 from .const import DOMAIN
 from .command_helper import SwitchCommand
 from .switch_8_button import SavantSwitch8Button
+from .switch_scene import SavantSwitchScene
 
 _LOGGER = logging.getLogger(__name__)
 SCAN_INTERVAL = timedelta(seconds=60)
@@ -43,7 +44,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
                     )
                 )
 
-    async_add_entities(switchs + eight_buttons, update_before_add=True)
+    scene_switchs = [
+        SavantSwitchScene(
+            name=device["name"],
+            module_address=device["module_address"],
+            loop_address=device["loop_address"],
+            host=device["host"],
+            port=device["port"],
+            tcp_manager=config["tcp_manager"]
+        )
+        for device in devices if device["type"] == "scene_switch"
+    ]
+    
+    async_add_entities(switchs + eight_buttons + scene_switchs, update_before_add=True)
 
 class SavantSwitch(SwitchEntity):
     """Representation of a Savant Switch."""

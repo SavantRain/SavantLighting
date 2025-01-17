@@ -10,6 +10,6 @@
   "iot_class": "local_push",
   "translations": ["strings.json"],
   "integration_type": "hub",
-  "supported_platforms": ["light", "switch", "climate", "floor_heating", "fresh_air", "fan"],
+  "supported_platforms": ["light", "switch", "climate", "fan", "cover", "binary_sensor"],
   "issue_tracker": "https://github.com/SavantRain/SavantLightingk/issues"
 }

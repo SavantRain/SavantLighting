@@ -6,7 +6,7 @@ from homeassistant.helpers.entity_platform import async_get_platforms
 from homeassistant.const import Platform
 from .tcp_manager import TCPConnectionManager
 
-PLATFORMS = [Platform.LIGHT, Platform.SWITCH, Platform.CLIMATE, Platform.FAN]
+PLATFORMS = [Platform.LIGHT, Platform.SWITCH, Platform.CLIMATE, Platform.FAN, Platform.COVER, Platform.BINARY_SENSOR]
 tcp_manager = None
 
 async def async_setup(hass: HomeAssistant, config: dict):
