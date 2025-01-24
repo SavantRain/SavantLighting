@@ -47,7 +47,7 @@ class TCPConnectionManager:
     async def send_command(self, data):
         """通过TCP发送命令"""
         self.command_no = self.command_no + 1
-        print(f"发送第{self.command_no}个命令:{str(data).replace('\\x', '')}")
+        logging.debug(f"发送第{self.command_no}个命令:{str(data).replace('\\x', '')}")
         if not await self.check_connection():
             _LOGGER.warning("连接未建立，无法发送命令")
             return None, False
@@ -66,7 +66,7 @@ class TCPConnectionManager:
         """通过TCP发送命令"""
         for data in data_list:
             self.command_no = self.command_no + 1
-            print(f"发送第{self.command_no}个命令:{str(data).replace('\\x', '')}")
+            logging.debug(f"发送第{self.command_no}个命令:{str(data).replace('\\x', '')}")
             try:
                 self.writer.write(data)
                 await self.writer.drain()
@@ -74,7 +74,6 @@ class TCPConnectionManager:
                 _LOGGER.error(f"发送命令时出错: {e}")
                 self._is_connected = False  # 出错后标记为断开连接
         return True, True
-    
     
     async def _listen_for_responses(self):
         """后台任务：监听响应并处理"""
