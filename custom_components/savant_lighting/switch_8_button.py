@@ -34,6 +34,11 @@ class SavantSwitch8Button(SwitchEntity):
         return self._is_on
 
     @property
+    def name(self):
+        """Return the name of the button."""
+        return f"{self._attr_name} Button {self._button_index}"
+    
+    @property
     def device_info(self):
         """Return device information to link this entity with the device registry."""
         return {

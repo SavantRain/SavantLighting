@@ -31,10 +31,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     eight_buttons = []
     for device in devices:
         if device["type"] == "8button":  # 检查设备类型是否为 8 键开关
-            for button_index in range(1, 9):  # 为每个按键创建一个实体
+            for button_index in device['selected_buttons']:  # 为每个按键创建一个实体
                 eight_buttons.append(
                     SavantSwitch8Button(
-                        name=f"{device['name']} Button {button_index}",
+                        name=f"{device['name']}",
                         module_address=device["module_address"],
                         loop_address=device["loop_address"],
                         button_index=button_index,

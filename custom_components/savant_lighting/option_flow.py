@@ -1,10 +1,7 @@
 from homeassistant import config_entries
 import voluptuous as vol
 from homeassistant.core import callback
-from homeassistant.helpers import device_registry as dr, entity_registry as er
-
-from .light import SavantLight
-from .switch import SavantSwitch
+from homeassistant.helpers import device_registry as dr, entity_registry as er, selector
 from .const import DOMAIN
 from homeassistant.components.light import ColorMode
 
@@ -136,8 +133,20 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
         host = self.config_entry.data.get("host")
         port = self.config_entry.data.get("port")
         if user_input is not None:
-            # 确保 'devices' 已初始化
-            devices = self.hass.data[DOMAIN].setdefault("devices", [])
+            entry = self.hass.config_entries.async_get_entry(self.config_entry.entry_id)
+            if not entry:
+                raise ValueError("Configuration entry not found")
+            devices = entry.data.get("devices", [])
+            
+             # 检查是否有重复的 module_address 和 loop_address
+            for exist_device in devices:
+                if (exist_device["module_address"] == user_input["module_address"] and
+                    exist_device["loop_address"] == user_input["loop_address"]):
+                    # 发现重复，返回提示信息
+                    return self.async_abort(
+                        reason=f"已存在相同地址的设备({exist_device['type']}：{exist_device['name']})",
+                    )
+            
             device_data = {
                 "type": self.device_type,
                 "sub_device_type": self.sub_device_type,
@@ -149,6 +158,9 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
             }
             if self.device_type == 'light':
                 device_data["gradient_time"] = user_input["gradient_time"]
+            if self.device_type == '8button':
+                device_data["selected_buttons"] = user_input["selected_buttons"]
+                
             devices.append(device_data)
 
             self.hass.config_entries.async_update_entry(
@@ -166,6 +178,20 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
                 vol.Required("module_address", default=""): int,
                 vol.Required("loop_address", default=""): int,
                 vol.Required("gradient_time"):int,
+            })
+        elif self.device_type == '8button':
+            button_options = [str(i) for i in range(1, 9)]
+            data_schema = vol.Schema({
+                vol.Required("name", default=""): str,
+                vol.Required("module_address", default=""): int,
+                vol.Required("loop_address", default=""): int,
+                vol.Required("selected_buttons"): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=button_options,
+                        multiple=True,
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                )
             })
         else:
             data_schema = vol.Schema({
@@ -191,7 +217,7 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
         # 显示设备选择菜单
         data_schema = vol.Schema({
             vol.Required("selected_device"): vol.In(
-                {device["name"]: f"{device['name']} (模块地址：{device['module_address']}, 回路地址：{device['loop_address']})" for device in devices}
+                {f"{device['name']}|{device['module_address']}|{device['loop_address']}": f"{device['name']} (模块地址：{device['module_address']}, 回路地址：{device['loop_address']})" for device in devices}
             )
         })
 
@@ -219,7 +245,7 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
         # 显示设备选择菜单
         data_schema = vol.Schema({
             vol.Required("selected_device"): vol.In(
-                {device["name"]: f"{device['name']} (模块地址：{device['module_address']}, 回路地址：{device['loop_address']})" for device in devices}
+                {f"{device['name']}|{device['module_address']}|{device['loop_address']}": f"{device['name']} (模块地址：{device['module_address']}, 回路地址：{device['loop_address']})" for device in devices}
             )
         })
 
@@ -247,9 +273,10 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
             }
             if self.device_type == 'light':
                 updated_device_data["gradient_time"] = user_input["gradient_time"]
+            if self.device_type == '8button':
+                updated_device_data["selected_buttons"] = user_input["selected_buttons"]
             # 更新设备数据到配置条目中
             await self._update_device_config(selected_device_data, updated_device_data)
-            
             return self.async_create_entry(title="Device Configured", data={})
 
         # 预填充当前设备数据
@@ -259,6 +286,18 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
                 # vol.Required("module_address", default=selected_device_data["module_address"]): str,
                 # vol.Required("loop_address", default=selected_device_data["loop_address"]): str,
                 vol.Required("gradient_time", default=selected_device_data["gradient_time"]):int,
+            })
+        elif self.device_type == '8button':
+            button_options = [str(i) for i in range(1, 9)]
+            data_schema = vol.Schema({
+                vol.Required("name", default=selected_device_data["name"]): str,
+                vol.Required("selected_buttons",default=selected_device_data.get("selected_buttons", [])): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=button_options,
+                        multiple=True,
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                )
             })
         else:
             data_schema = vol.Schema({
@@ -298,8 +337,7 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
         if not entry:
             raise ValueError("Configuration entry not found")
         devices = entry.data.get("devices", [])
-        updated_devices = []
-        for device in devices:
+        for index, device in enumerate(devices):
             if (
                 device["type"] == new_device_data["type"] and
                 device["sub_device_type"] == new_device_data["sub_device_type"] and
@@ -307,16 +345,23 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
                 device["loop_address"] == new_device_data["loop_address"]
             ):
                 updated_device = {**device, **new_device_data}
-                updated_device["name"] = new_device_data.get("name", device["name"])  # 更新名称
-                updated_devices.append(updated_device)
-            else:
-                updated_devices.append(device)
-        # 更新配置条目中的设备列表
-        updated_data = {**entry.data, "devices": updated_devices}
-        # 将更新后的数据持久化到配置条目中
+                updated_device["name"] = new_device_data.get("name", device["name"])
+                if device["type"] == "light":
+                    updated_device["gradient_time"] = new_device_data.get("gradient_time", device["gradient_time"])
+                if device["type"] == "8button":
+                    old_selected_buttons = old_device_data.get("selected_buttons", [])
+                    new_selected_buttons = new_device_data.get("selected_buttons", old_selected_buttons)
+                    buttons_to_add = set(new_selected_buttons) - set(old_selected_buttons)
+                    buttons_to_remove = set(old_selected_buttons) - set(new_selected_buttons)
+                    updated_device['selected_buttons'] = new_selected_buttons
+                devices[index] = updated_device
+                
+        updated_data = {**entry.data, "devices": devices}
         self.hass.config_entries.async_update_entry(entry, data=updated_data)
+        await self.hass.config_entries.async_reload(entry.entry_id)
+        print("Updated device config")
 
-    async def _delete_device(self, device_name):
+    async def _delete_device(self, device_param):
         """Delete a device and its entities from the config entry and registries."""
         # 获取当前配置条目
         entry = self.hass.config_entries.async_get_entry(self.config_entry.entry_id)
@@ -329,7 +374,7 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
         # 找到要删除的设备
         device_to_delete = None
         for device in devices:
-            if device["name"] == device_name:
+            if f"{device['name']}|{device['module_address']}|{device['loop_address']}" == device_param:
                 device_to_delete = device
                 break
 
@@ -355,7 +400,7 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
                 break
 
         # 更新配置条目中的设备列表（删除条目）
-        updated_devices = [device for device in devices if device["name"] != device_name]
+        updated_devices = [device for device in devices if f"{device['name']}|{device['module_address']}|{device['loop_address']}" != device_param]
         updated_data = {**entry.data, "devices": updated_devices}
         self.hass.config_entries.async_update_entry(entry, data=updated_data)
         
@@ -372,18 +417,13 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
             filtered_devices = [device for device in devices if device["sub_device_type"] == self.sub_device_type]
         return filtered_devices
     
-    def _get_device_by_name(self, device_name):
+    def _get_device_by_name(self, device_param):
         """Retrieve a device by its name from the config entry."""
         entry = self.hass.config_entries.async_get_entry(self.config_entry.entry_id)
         if not entry:
             return None
-        
         devices = entry.data.get("devices", [])
         for device in devices:
-            if device["name"] == device_name:
-                device["host"] = entry.data.get("host")
-                device["port"] = entry.data.get("port")
-                device["sub_device_type"] = device.get("sub_device_type")  # 确保返回子设备类型
+            if f"{device['name']}|{device['module_address']}|{device['loop_address']}" == device_param:
                 return device
         return None
-    
