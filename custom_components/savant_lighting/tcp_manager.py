@@ -47,7 +47,7 @@ class TCPConnectionManager:
     async def send_command(self, data):
         """通过TCP发送命令"""
         self.command_no = self.command_no + 1
-        logging.debug(f"发送第{self.command_no}个命令:{str(data).replace('\\x', '')}")
+        print(f"发送第{self.command_no}个命令:{str(data).replace('\\x', '')}")
         if not await self.check_connection():
             _LOGGER.warning("连接未建立，无法发送命令")
             return None, False
@@ -66,7 +66,7 @@ class TCPConnectionManager:
         """通过TCP发送命令"""
         for data in data_list:
             self.command_no = self.command_no + 1
-            logging.debug(f"发送第{self.command_no}个命令:{str(data).replace('\\x', '')}")
+            print(f"发送第{self.command_no}个命令:{str(data).replace('\\x', '')}")
             try:
                 self.writer.write(data)
                 await self.writer.drain()
@@ -154,7 +154,7 @@ class TCPConnectionManager:
         elif device_type == 'floor_heating':
             device = self.hass.data['climate'].get_entity(entity_id)
         elif device_type == 'fresh_air':
-            device = self.hass.data['fan'].get_entity(entity_id)
+            device = self.hass.data['climate'].get_entity(entity_id)
         elif device_type == 'curtain':
             device = self.hass.data['cover'].get_entity(entity_id)
         elif device_type == 'scene_switch':

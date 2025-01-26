@@ -210,7 +210,7 @@ class ClimateCommand:
         return bytes.fromhex(command_hex)
     
     
-class FanCommand:
+class FreshAirCommand:
     def __init__(self, host, module_address, loop_address):
         self.host_hex = f"AC{int(host.split('.')[-1]):02X}0010"
         self.module_hex = f"{int(module_address):02X}"

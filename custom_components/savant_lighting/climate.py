@@ -10,6 +10,7 @@ from homeassistant.const import ATTR_TEMPERATURE,UnitOfTemperature
 from homeassistant.core import HomeAssistant
 
 from .floor_heating import SavantFloorHeating
+from .fresh_air import SavantFreshAirAC
 from .const import DOMAIN
 from .command_helper import ClimateCommand
 from .send_command import *
