@@ -5,5 +5,7 @@
     "country": "us",
     "zip_release": false,
     "filename": "custom_components/savant_lighting/",
-    "render_readme": true
+    "render_readme": true,
+    "persistent_directory": "icons",
+    "image": "icons/logo.png"
   }
