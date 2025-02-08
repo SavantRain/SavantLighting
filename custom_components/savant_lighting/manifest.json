@@ -11,5 +11,6 @@
   "translations": ["strings.json"],
   "integration_type": "hub",
   "supported_platforms": ["light", "switch", "climate", "fan", "cover", "binary_sensor"],
-  "issue_tracker": "https://github.com/SavantRain/SavantLightingk/issues"
+  "issue_tracker": "https://github.com/SavantRain/SavantLightingk/issues",
+  "image": "icons/logo.png"
 }
