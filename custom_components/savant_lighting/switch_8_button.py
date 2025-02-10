@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from datetime import timedelta
 from homeassistant.components.switch import SwitchEntity
@@ -18,7 +19,7 @@ class SavantSwitch8Button(SwitchEntity):
         self._button_index = button_index  # 当前按键的索引 (1-8)
         self._host = host
         self._port = port
-        self._is_on = False
+        self._state = False
         self.tcp_manager = tcp_manager
         self.tcp_manager.register_callback("8button", self.update_state)
         self.command = SwitchCommand(host, module_address, loop_address)
@@ -31,7 +32,7 @@ class SavantSwitch8Button(SwitchEntity):
     @property
     def is_on(self):
         """Return true if the button is on."""
-        return self._is_on
+        return self._state
 
     @property
     def name(self):
@@ -50,19 +51,34 @@ class SavantSwitch8Button(SwitchEntity):
         
     async def async_turn_on(self, **kwargs):
         """Turn the button on."""
-        self._is_on = True
+        self._state = False
         await self._send_state_to_device(f"button:{self._button_index}:on")
         self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs):
         """Turn the button off."""
-        self._is_on = False
+        self._state = False
         await self._send_state_to_device(f"button:{self._button_index}:off")
         self.async_write_ha_state()
         
     def update_state(self, response_dict):
-        """Update the state of the button based on the response."""
-        button_index = response_dict.get("button_index")
-        if button_index == self._button_index:
-            self._is_on = response_dict.get("state", False)
-            self.async_write_ha_state()
+        print('按键收到状态响应: ' + str(response_dict).replace('\\x', ''))
+        device = response_dict['device']
+        if response_dict["data1"] == 0x01:  
+            device._state = True
+
+        # asyncio.sleep(1)  
+        # device._state = False
+
+        device.async_write_ha_state()
+
+        asyncio.sleep(100)  
+        device._state = False
+        device.async_write_ha_state()
+
+
+        # """Update the state of the button based on the response."""
+        # button_index = response_dict.get("button_index")
+        # # if button_index == self._button_index:
+        # #     self._is_on = response_dict.get("state", False)
+        #     self.async_write_ha_state()

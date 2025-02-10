@@ -83,6 +83,13 @@ class SavantPersonSensor(BinarySensorEntity):
 
     def update_state(self, response_dict):
         """Update the state of the sensor based on the response."""
-        _LOGGER.debug(f"Human Presence Sensor received state response: {response_dict}")
-        self._state = response_dict.get("state", STATE_OFF)
+        print('感应收到状态响应: ' + str(response_dict).replace('\\x', ''))
+        device = response_dict['device']
+        if response_dict["data1"] == 0x01:  
+            device._state = STATE_ON
+        elif response_dict["data1"] == 0x02:  
+            device._state = STATE_OFF 
+
+        # _LOGGER.debug(f"Human Presence Sensor received state response: {response_dict}")
+        # self._state = response_dict.get("state", STATE_OFF)
         self.async_write_ha_state()

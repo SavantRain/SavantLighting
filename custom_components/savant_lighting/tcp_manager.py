@@ -159,6 +159,10 @@ class TCPConnectionManager:
             device = self.hass.data['cover'].get_entity(entity_id)
         elif device_type == 'scene_switch':
             device = self.hass.data['switch'].get_entity(entity_id)
+        elif device_type == 'person_sensor':
+            device = self.hass.data['binary_sensor'].get_entity(entity_id)
+        elif device_type == '8button':
+            device = self.hass.data['switch'].get_entity(entity_id)
         else:
             _LOGGER.error(f"未找到 entity_id 为 {entity_id} 的设备实例")
             return None
@@ -195,16 +199,21 @@ class TCPConnectionManager:
             "module_address": response_str[4],
             "loop_address": response_str[5],
             "unique_id":"",
+            "button_index":"",
             "device":None
+            
         }
         if response_dict["data2"] == 0x00 and response_dict["data3"] == 0x00 and response_dict["data4"] == 0x00:
             response_dict["device_type"] = "switch"
 
-        elif response_dict["data3"] == 0x00 and response_dict["data4"] == 0x00:
-            response_dict["device_type"] = "io08"
+        elif response_dict["loop_address"] == 0x00 and response_dict["data3"] == 0x00 and response_dict["data4"] == 0x00:
+            response_dict["loop_address"] = response_str[9]
+            response_dict["device_type"] = "person_sensor"
 
-        elif response_dict["data4"] == 0x00:
-            response_dict["device_type"] = "keypad"
+        elif response_dict["loop_address"] == 0x00 and response_dict["data4"] == 0x00:
+            response_dict["button_index"] = response_str[9]
+            response_dict["loop_address"] = response_str[10]
+            response_dict["device_type"] = "8button"
 
         elif response_dict["data2"] == 0x00 and response_dict["data3"] == 0x00 and response_dict["data4"] == 0x11:
             response_dict["device_type"] = "light"
@@ -277,6 +286,9 @@ class TCPConnectionManager:
             response_dict["loop_address"] = response_dict["data3"]
             response_dict["hvac_type"] = "hvac_08"
 
-        unique_id = f"{response_dict["module_address"]}_{response_dict["loop_address"]}_{response_dict["device_type"]}"
+        if response_dict["device_type"] == "8button":
+            unique_id = f"{response_dict["module_address"]}_{response_dict["loop_address"]}_{response_dict["button_index"]}_{response_dict["device_type"]}"
+        else:
+            unique_id = f"{response_dict["module_address"]}_{response_dict["loop_address"]}_{response_dict["device_type"]}"
         response_dict['device'] = self.get_device_by_unique_id(response_dict["device_type"],unique_id)
         return response_dict
