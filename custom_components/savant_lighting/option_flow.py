@@ -139,12 +139,16 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
             devices = entry.data.get("devices", [])
             
              # 检查是否有重复的 module_address 和 loop_address
+            if self.device_type == 'scene_switch':
+                user_input["module_address"] = 'scene' + str(user_input['scene_number'])
+                user_input["loop_address"] = 'scene' + str(user_input['scene_number'])
+                
             for exist_device in devices:
                 if (exist_device["module_address"] == user_input["module_address"] and
                     exist_device["loop_address"] == user_input["loop_address"]):
                     # 发现重复，返回提示信息
                     return self.async_abort(
-                        reason=f"已存在相同地址的设备({exist_device['type']}：{exist_device['name']})",
+                        reason=f"地址重复，当前已分配[{exist_device['type']}：{exist_device['name']}], 请更改后重试。",
                     )
             
             device_data = {
@@ -160,6 +164,8 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
                 device_data["gradient_time"] = user_input["gradient_time"]
             if self.device_type == '8button':
                 device_data["selected_buttons"] = user_input["selected_buttons"]
+            if self.device_type == 'scene_switch':
+                device_data["scene_number"] = user_input["scene_number"]
                 
             devices.append(device_data)
 
@@ -193,6 +199,11 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
                     )
                 )
             })
+        elif self.device_type == 'scene_switch':
+            data_schema = vol.Schema({
+                vol.Required("name", default=""): str,
+                vol.Required("scene_number"):int,
+            })
         else:
             data_schema = vol.Schema({
                 vol.Required("name", default=""): str,
@@ -215,11 +226,18 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
             return await self.async_step_edit_device()
 
         # 显示设备选择菜单
-        data_schema = vol.Schema({
-            vol.Required("selected_device"): vol.In(
-                {f"{device['name']}|{device['module_address']}|{device['loop_address']}": f"{device['name']} (模块地址：{device['module_address']}, 回路地址：{device['loop_address']})" for device in devices}
-            )
-        })
+        if self.device_type == 'scene_switch':
+            data_schema = vol.Schema({
+                vol.Required("selected_device"): vol.In(
+                    {f"{device['name']}|{device['module_address']}|{device['loop_address']}": f"{device['name']} (场景号：{device['scene_number']})" for device in devices}
+                )
+            })
+        else:
+            data_schema = vol.Schema({
+                vol.Required("selected_device"): vol.In(
+                    {f"{device['name']}|{device['module_address']}|{device['loop_address']}": f"{device['name']} (模块地址：{device['module_address']}, 回路地址：{device['loop_address']})" for device in devices}
+                )
+            })
 
         return self.async_show_form(
             step_id="configure",
@@ -243,11 +261,18 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
             return self.async_create_entry(title="Device Deleted", data={})
 
         # 显示设备选择菜单
-        data_schema = vol.Schema({
-            vol.Required("selected_device"): vol.In(
-                {f"{device['name']}|{device['module_address']}|{device['loop_address']}": f"{device['name']} (模块地址：{device['module_address']}, 回路地址：{device['loop_address']})" for device in devices}
-            )
-        })
+        if self.device_type == 'scene_switch':
+            data_schema = vol.Schema({
+                vol.Required("selected_device"): vol.In(
+                    {f"{device['name']}|{device['module_address']}|{device['loop_address']}": f"{device['name']} (场景号：{device['scene_number']})" for device in devices}
+                )
+            })
+        else:
+            data_schema = vol.Schema({
+                vol.Required("selected_device"): vol.In(
+                    {f"{device['name']}|{device['module_address']}|{device['loop_address']}": f"{device['name']} (模块地址：{device['module_address']}, 回路地址：{device['loop_address']})" for device in devices}
+                )
+            })
 
         return self.async_show_form(
             step_id="delete",

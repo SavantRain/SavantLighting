@@ -8,24 +8,24 @@ _LOGGER = logging.getLogger(__name__)
 SCAN_INTERVAL = timedelta(seconds=60)
 
 class SavantSwitchScene(SwitchEntity):
-    """Representation of an 8-button switch."""
 
-    def __init__(self, name, module_address, loop_address, host, port, tcp_manager):
+    def __init__(self, name, module_address, loop_address, scene_number, host, port, tcp_manager):
         self._attr_name = name
         self._module_address = module_address
         self._loop_address = loop_address
+        self._scene_number = scene_number
         self._host = host
         self._port = port
         self._is_on = False
         self.tcp_manager = tcp_manager
         self.tcp_manager.register_callback("scene_switch", self.update_state)
-        self.command = SwitchSceneCommand(host,module_address,loop_address)
+        self.command = SwitchSceneCommand(host,module_address,loop_address, scene_number)
         
 
     @property
     def unique_id(self):
         """Return a unique ID for this switch button."""
-        return f"{self._module_address}_{self._loop_address}_scene_switch"
+        return f"{self._module_address}_{self._loop_address}_{self._scene_number}_scene_switch"
 
     @property
     def is_on(self):

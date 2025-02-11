@@ -228,7 +228,7 @@ class CurtainCommand:
         self.module_bytes = bytes.fromhex(self.module_hex)
         
 class SwitchSceneCommand:
-    def __init__(self, host, module_address, loop_address):
+    def __init__(self, host, module_address, loop_address, scene_number):
         self.host_hex = f"AC{int(host.split('.')[-1]):02X}0010"
         self.module_hex = f"{int(module_address):02X}"
         self.loop_hex = f"{int(loop_address):02X}"

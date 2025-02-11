@@ -49,6 +49,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             name=device["name"],
             module_address=device["module_address"],
             loop_address=device["loop_address"],
+            scene_number=device["scene_number"],
             host=device["host"],
             port=device["port"],
             tcp_manager=config["tcp_manager"]

@@ -46,7 +46,8 @@
           "name": "设备名称",
           "module_address": "模块地址: 1-64",
           "loop_address": "回路地址: 1-8",
-          "gradient_time": "渐变时间，数字"
+          "gradient_time": "渐变时间，数字",
+          "scene_number": "场景号"
         }
       }
     }
