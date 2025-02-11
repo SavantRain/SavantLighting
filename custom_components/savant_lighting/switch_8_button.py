@@ -53,32 +53,32 @@ class SavantSwitch8Button(SwitchEntity):
         """Turn the button on."""
         self._state = False
         await self._send_state_to_device(f"button:{self._button_index}:on")
-        self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs):
         """Turn the button off."""
         self._state = False
         await self._send_state_to_device(f"button:{self._button_index}:off")
-        self.async_write_ha_state()
+
+    async def _send_state_to_device(self, command):
+        """Send the command to the device."""
+        print(f"Sending command to device: {command}")
         
     def update_state(self, response_dict):
+        """Update the state of the device based on the response."""
         print('按键收到状态响应: ' + str(response_dict).replace('\\x', ''))
         device = response_dict['device']
-        if response_dict["data1"] == 0x01:  
+        
+        if response_dict["data1"] == 0x01:
             device._state = True
+            device.async_write_ha_state()
+            # Schedule to set the state to False after 1 second
+            asyncio.create_task(self._set_state_false_after_delay(device))
+        else:
+            device._state = False
+            device.async_write_ha_state()
 
-        # asyncio.sleep(1)  
-        # device._state = False
-
-        device.async_write_ha_state()
-
-        asyncio.sleep(100)  
+    async def _set_state_false_after_delay(self, device):
+        """Set the state to False after a delay."""
+        await asyncio.sleep(1)  # Wait for 1 second
         device._state = False
         device.async_write_ha_state()
-
-
-        # """Update the state of the button based on the response."""
-        # button_index = response_dict.get("button_index")
-        # # if button_index == self._button_index:
-        # #     self._is_on = response_dict.get("state", False)
-        #     self.async_write_ha_state()

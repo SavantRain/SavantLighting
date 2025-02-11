@@ -97,8 +97,23 @@ class SavantFreshCurtain(CoverEntity):
         self.async_write_ha_state()
 
     async def _send_command(self, command: str):
-        """Send a command to the curtain."""
-        hex_command = self.command.to_hex(command)
+        host_hex = f"AC{int(self._host.split('.')[-1]):02X}0010"
+        module_hex = f"{int(self._module_address):02X}"
+        loop_hex = f"{int(self._loop_address):02X}"
+        
+        base_command = bytes.fromhex(host_hex + module_hex + loop_hex)
+
+        if command == "open":
+            hex_command = base_command + b'\x00\x04\x64\x00\x00\x00\xCA'
+        elif command == "close":
+            hex_command = base_command + b'\x00\x04\x00\x00\x00\x00\xCA'
+        elif command.startswith("set_position:"):
+            position = int(command.split(":")[1])
+            position_hex = f"{position:02X}"
+            hex_command = base_command + bytes.fromhex(position_hex) + b'\x00\x00\x00\xCA'
+        else:
+            raise ValueError("Unsupported command")
+
         await self.tcp_manager.send_command(hex_command)
         _LOGGER.debug(f"Sent command to curtain: {command}")
 

@@ -78,7 +78,7 @@ class SavantPersonSensor(BinarySensorEntity):
     async def _get_sensor_state(self):
         """获取传感器的状态，模拟从设备获取信息的过程。"""
         # 模拟设备返回的状态，根据实际协议修改
-        response = {"state": STATE_ON}  # 假设返回有人
+        response = {"state": STATE_OFF}  # 假设返回有人
         return response
 
     def update_state(self, response_dict):
