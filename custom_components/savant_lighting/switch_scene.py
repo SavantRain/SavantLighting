@@ -19,7 +19,7 @@ class SavantSwitchScene(SwitchEntity):
         self._is_on = False
         self.tcp_manager = tcp_manager
         self.tcp_manager.register_callback("scene_switch", self.update_state)
-        self.command = SwitchSceneCommand(host,module_address,loop_address, scene_number)
+        self.command = SwitchSceneCommand(host, scene_number)
         
 
     @property
