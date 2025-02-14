@@ -229,5 +229,23 @@ class CurtainCommand:
         
 class SwitchSceneCommand:
     def __init__(self, host, scene_number):
-        self.host_hex = f"AC{int(host.split('.')[-1]):02X}0010"
+        self.host_hex = f"AC{int(host.split('.')[-1]):02X}101000"
         self.host_bytes = bytes.fromhex(self.host_hex)
+        self.scene_hex = f"{int(scene_number):02X}"
+        self.scene_bytes = bytes.fromhex(self.scene_hex)
+    # def __init__(self, host, module_address, loop_address):
+    #     self.host_hex = f"AC{int(host.split('.')[-1]):02X}0010"
+    #     self.module_hex = f"{int(module_address):02X}"
+    #     self.loop_hex = f"{int(loop_address):02X}"
+    #     self.host_bytes = bytes.fromhex(self.host_hex)
+    #     self.module_bytes = bytes.fromhex(self.module_hex)
+    #     self.loop_bytes = bytes.fromhex(self.loop_hex)
+    
+    def turnonoff(self, command):
+        if command == "on":
+            command_hex = f'000401000000CA'   #状态开启
+        elif command == "off":
+            command_hex = f'000401000000CA'   #状态关闭
+        command_bytes = bytes.fromhex(command_hex)
+        command = self.host_bytes + self.scene_bytes + command_bytes
+        return command

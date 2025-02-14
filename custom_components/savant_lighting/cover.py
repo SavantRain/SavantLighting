@@ -45,7 +45,7 @@ class SavantFreshCurtain(CoverEntity):
         self._state = STATE_OFF  # Curtain is initially closed
         self._attr_is_closed = True
         self.tcp_manager = tcp_manager
-        self.tcp_manager.register_callback("curtains", self.update_state)
+        self.tcp_manager.register_callback("curtain", self.update_state)
         self.command = CurtainCommand(host, module_address, loop_address)
 
     @property
@@ -59,7 +59,7 @@ class SavantFreshCurtain(CoverEntity):
         return self._position == 100
 
     @property
-    def current_position(self):
+    def current_cover_position(self):
         """Return the current position of the curtain (0 - 100%)."""
         return self._position
     
@@ -78,13 +78,13 @@ class SavantFreshCurtain(CoverEntity):
         """Return the list of supported features."""
         return CoverEntityFeature.SET_POSITION | CoverEntityFeature.OPEN | CoverEntityFeature.CLOSE
 
-    async def async_open(self, **kwargs):
+    async def async_open_cover(self, **kwargs):
         """Open the curtain completely."""
         self._position = 100
         await self._send_command("open")
         self.async_write_ha_state()
 
-    async def async_close(self, **kwargs):
+    async def async_close_cover(self, **kwargs):
         """Close the curtain completely."""
         self._position = 0
         await self._send_command("close")
@@ -110,7 +110,7 @@ class SavantFreshCurtain(CoverEntity):
         elif command.startswith("set_position:"):
             position = int(command.split(":")[1])
             position_hex = f"{position:02X}"
-            hex_command = base_command + bytes.fromhex(position_hex) + b'\x00\x00\x00\xCA'
+            hex_command = base_command + b'\x00\x04' + bytes.fromhex(position_hex) + b'\x00\x00\x00\xCA'
         else:
             raise ValueError("Unsupported command")
 
@@ -118,9 +118,16 @@ class SavantFreshCurtain(CoverEntity):
         _LOGGER.debug(f"Sent command to curtain: {command}")
 
     def update_state(self, response_dict):
-        """Update the state of the curtain based on the response."""
-        _LOGGER.debug(f"Curtain received state response: {response_dict}")
-        # Update the curtain's position or state based on response
-        self._position = response_dict.get("position", self._position)
-        self._state = response_dict.get("state", self._state)
-        self.async_write_ha_state()
+        """Update the state of the curtain based on the response from the device."""
+        print('窗帘收到状态响应: ' + str(response_dict).replace('\\x', ''))
+        device = response_dict['device']
+
+        if response_dict["data1"] == 0x00:
+            device._state = STATE_OFF
+            device._position = 0
+        else:
+            device._state = STATE_ON
+            device._position = response_dict["data1"]
+
+        device._attr_is_closed = device._position == 0 
+        device.async_write_ha_state() 
