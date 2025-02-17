@@ -182,11 +182,9 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
                 self.config_entry, data={"devices": devices, "host": host, "port": port}
             )
             await self._register_device_and_entity(device_data, device_type=self.device_type)
-            await self.hass.config_entries.async_reload(self.config_entry.entry_id)
             result = self.async_create_entry(title=f"{self.device_type.capitalize()} Added",data=device_data)
             return result
 
-        # 添加设备表单，包含名称字段
         if self.device_type == 'light':
             data_schema = vol.Schema({
                 vol.Required("name", default=""): str,
@@ -225,16 +223,13 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
         """Step to configure an existing device."""
         devices = self._get_devices_of_type(self.device_type)
         
-        # 如果没有设备可以配置，显示一条错误信息
         if not devices:
             return self.async_abort(reason="没有找到设备")
 
         if user_input is not None:
-            # 用户选择了某个设备，进入配置流程
             self.selected_device = user_input["selected_device"]
             return await self.async_step_edit_device()
 
-        # 显示设备选择菜单
         if self.device_type == 'scene_switch':
             data_schema = vol.Schema({
                 vol.Required("selected_device"): vol.In(
@@ -255,21 +250,15 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
         )
         
     async def async_step_delete(self, user_input=None):
-        """Step to delete an existing device."""
-        # 获取当前类型的设备列表
         devices = self._get_devices_of_type(self.device_type)
-        
-        # 如果没有设备可删除，显示一条错误信息
         if not devices:
             return self.async_abort(reason="no_devices_to_delete")
 
         if user_input is not None:
-            # 用户选择了某个设备，执行删除操作
             selected_device = user_input["selected_device"]
             await self._delete_device(selected_device)
             return self.async_create_entry(title="Device Deleted", data={})
 
-        # 显示设备选择菜单
         if self.device_type == 'scene_switch':
             data_schema = vol.Schema({
                 vol.Required("selected_device"): vol.In(
@@ -353,6 +342,7 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
     async def _register_device_and_entity(self, device_data, device_type):
         """Register device in Home Assistant's device registry."""
         device_registry = dr.async_get(self.hass)
+        entry = self.hass.config_entries.async_get_entry(self.config_entry.entry_id)
         if not isinstance(device_type, str) or device_type not in ["light", "switch","climate","floor_heating","fresh_air","8button","curtain","person_sensor","scene_switch"]:
             raise ValueError(f"Invalid device type provided: {device_type}")
         model_name = device_type.capitalize()
@@ -364,6 +354,7 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
             model=model_name,
             sw_version="1.0",
         )
+        await self.hass.config_entries.async_reload(entry.entry_id)
 
     async def _update_device_config(self, old_device_data, new_device_data):
         """Update the configuration of an existing device."""
@@ -393,7 +384,6 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
         updated_data = {**entry.data, "devices": devices}
         self.hass.config_entries.async_update_entry(entry, data=updated_data)
         await self.hass.config_entries.async_reload(entry.entry_id)
-        print("Updated device config")
 
     async def _delete_device(self, device_param):
         """Delete a device and its entities from the config entry and registries."""
