@@ -78,7 +78,7 @@ class SavantFreshAirFan(FanEntity):
     def device_info(self):
         """Return device information to link this entity with the device registry."""
         return {
-            "identifiers": {(DOMAIN, f"{self._module_address}_{self._loop_address}")},
+            "identifiers": {(DOMAIN, f"{self._module_address}_{self._loop_address}_fresh_air")},
             "name": self._attr_name,
             "manufacturer": "Savant",
             "model": "Fresh Air Model",

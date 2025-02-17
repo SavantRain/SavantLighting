@@ -67,7 +67,7 @@ class SavantFreshCurtain(CoverEntity):
     def device_info(self):
         """Return device information to link this entity with the device registry."""
         return {
-            "identifiers": {(DOMAIN, f"{self._module_address}_{self._loop_address}")},
+            "identifiers": {(DOMAIN, f"{self._module_address}_{self._loop_address}_curtain")},
             "name": self._attr_name,
             "manufacturer": "Savant",
             "model": "Curtain Model",

@@ -142,15 +142,24 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
             if self.device_type == 'scene_switch':
                 user_input["module_address"] = 'scene' + str(user_input['scene_number'])
                 user_input["loop_address"] = 'scene' + str(user_input['scene_number'])
-                
+
             for exist_device in devices:
-                if (exist_device["module_address"] == user_input["module_address"] and
-                    exist_device["loop_address"] == user_input["loop_address"]):
+                if self.device_type in ['fresh_air', 'floor_heating', 'climate']:
+                    if (exist_device["module_address"] == user_input["module_address"] \
+                        and exist_device["loop_address"] == user_input["loop_address"]) \
+                        and (exist_device["type"] == self.device_type):
                     # 发现重复，返回提示信息
-                    return self.async_abort(
-                        reason=f"地址重复，当前已分配[{exist_device['type']}：{exist_device['name']}], 请更改后重试。",
-                    )
-            
+                        return self.async_abort(
+                            reason=f"地址重复，当前已分配[{exist_device['type']}：{exist_device['name']}], 请更改后重试。",
+                        )
+                else:
+                    if (exist_device["module_address"] == user_input["module_address"] \
+                        and exist_device["loop_address"] == user_input["loop_address"]):
+                        # 发现重复，返回提示信息
+                        return self.async_abort(
+                            reason=f"地址重复，当前已分配[{exist_device['type']}：{exist_device['name']}], 请更改后重试。",
+                        )
+
             device_data = {
                 "type": self.device_type,
                 "sub_device_type": self.sub_device_type,
@@ -229,13 +238,13 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
         if self.device_type == 'scene_switch':
             data_schema = vol.Schema({
                 vol.Required("selected_device"): vol.In(
-                    {f"{device['name']}|{device['module_address']}|{device['loop_address']}": f"{device['name']} (场景号：{device['scene_number']})" for device in devices}
+                    {f"{device['name']}|{device['module_address']}|{device['loop_address']}|{device['type']}": f"{device['name']} (场景号：{device['scene_number']})" for device in devices}
                 )
             })
         else:
             data_schema = vol.Schema({
                 vol.Required("selected_device"): vol.In(
-                    {f"{device['name']}|{device['module_address']}|{device['loop_address']}": f"{device['name']} (模块地址：{device['module_address']}, 回路地址：{device['loop_address']})" for device in devices}
+                    {f"{device['name']}|{device['module_address']}|{device['loop_address']}|{device['type']}": f"{device['name']} (模块地址：{device['module_address']}, 回路地址：{device['loop_address']})" for device in devices}
                 )
             })
 
@@ -264,13 +273,13 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
         if self.device_type == 'scene_switch':
             data_schema = vol.Schema({
                 vol.Required("selected_device"): vol.In(
-                    {f"{device['name']}|{device['module_address']}|{device['loop_address']}": f"{device['name']} (场景号：{device['scene_number']})" for device in devices}
+                    {f"{device['name']}|{device['module_address']}|{device['loop_address']}|{device['type']}": f"{device['name']} (场景号：{device['scene_number']})" for device in devices}
                 )
             })
         else:
             data_schema = vol.Schema({
                 vol.Required("selected_device"): vol.In(
-                    {f"{device['name']}|{device['module_address']}|{device['loop_address']}": f"{device['name']} (模块地址：{device['module_address']}, 回路地址：{device['loop_address']})" for device in devices}
+                    {f"{device['name']}|{device['module_address']}|{device['loop_address']}|{device['type']}": f"{device['name']} (模块地址：{device['module_address']}, 回路地址：{device['loop_address']})" for device in devices}
                 )
             })
 
@@ -399,7 +408,7 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
         # 找到要删除的设备
         device_to_delete = None
         for device in devices:
-            if f"{device['name']}|{device['module_address']}|{device['loop_address']}" == device_param:
+            if f"{device['name']}|{device['module_address']}|{device['loop_address']}|{device['type']}" == device_param:
                 device_to_delete = device
                 break
 
@@ -413,7 +422,7 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
         # 删除设备及其关联的实体
         device_id = None
         for device_entry in device_registry.devices.values():
-            if (DOMAIN, f"{device_to_delete['module_address']}_{device_to_delete['loop_address']}") in device_entry.identifiers:
+            if (DOMAIN, f"{device_to_delete['module_address']}_{device_to_delete['loop_address']}_{device_to_delete['type']}") in device_entry.identifiers:
                 device_id = device_entry.id
                 # 删除实体
                 for entity_entry in entity_registry.entities.values():
@@ -425,7 +434,7 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
                 break
 
         # 更新配置条目中的设备列表（删除条目）
-        updated_devices = [device for device in devices if f"{device['name']}|{device['module_address']}|{device['loop_address']}" != device_param]
+        updated_devices = [device for device in devices if f"{device['name']}|{device['module_address']}|{device['loop_address']}|{device['type']}" != device_param]
         updated_data = {**entry.data, "devices": updated_devices}
         self.hass.config_entries.async_update_entry(entry, data=updated_data)
         
@@ -449,6 +458,6 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
             return None
         devices = entry.data.get("devices", [])
         for device in devices:
-            if f"{device['name']}|{device['module_address']}|{device['loop_address']}" == device_param:
+            if f"{device['name']}|{device['module_address']}|{device['loop_address']}|{device['type']}" == device_param:
                 return device
         return None
