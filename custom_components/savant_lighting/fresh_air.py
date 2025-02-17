@@ -37,7 +37,7 @@ class SavantFreshAirAC(ClimateEntity):
         self._attr_temperature_unit = None
         self._attr_current_temperature = None
         self.tcp_manager = tcp_manager
-        self.tcp_manager.register_callback("fresh_air", self.update_state)
+        self.tcp_manager.register_callback("fresh_air_ac", self.update_state)
         self.command = FreshAirCommand(host,module_address,loop_address)
 
     @property

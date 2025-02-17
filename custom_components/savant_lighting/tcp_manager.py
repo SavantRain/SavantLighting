@@ -154,7 +154,7 @@ class TCPConnectionManager:
         elif device_type == 'floor_heating':
             device = self.hass.data['climate'].get_entity(entity_id)
         elif device_type == 'fresh_air':
-            device = self.hass.data['climate'].get_entity(entity_id)
+            device = self.hass.data['fan'].get_entity(entity_id)
         elif device_type == 'curtain':
             device = self.hass.data['cover'].get_entity(entity_id)
         elif device_type == 'scene_switch':
