@@ -86,6 +86,11 @@ class TCPConnectionManager:
                     response_dict = self._parse_response(response_str)
                     if response_dict['device_type'] in self._callbacks and response_dict['device']:
                         self._callbacks[response_dict['device_type']](response_dict)
+                        if ('redirect_type' in response_dict):
+                            response_dict['device_type'] = response_dict['redirect_type']
+                            unique_id = f"{response_dict["module_address"]}_{response_dict["loop_address"]}_{response_dict["device_type"]}"
+                            response_dict['device'] = self.get_device_by_unique_id(response_dict["device_type"],unique_id)
+                            self._callbacks[response_dict['device_type']](response_dict)
                     else:
                         _LOGGER.warning(f"未识别的设备类型: {response_dict['device_type']}")
                 else:
@@ -266,10 +271,10 @@ class TCPConnectionManager:
             # hvac_fhs = ["climate", "floor_heating"]
             # for hvac_fh in hvac_fhs:
             #     response_dict["device_type"] = hvac_fh
-                response_dict["device_type"] = "climate"
-                response_dict["loop_address"] = response_dict["data3"]
-                response_dict["hvac_type"] = "hvac_09"
-
+            response_dict["device_type"] = "climate"
+            response_dict["loop_address"] = response_dict["data3"]
+            response_dict["hvac_type"] = "hvac_09"
+            response_dict["redirect_type"] = "floor_heating"
             
         elif response_dict["data2"] == 0x00 and response_dict["data4"] == 0x21 and response_dict["loop_address"] in floor_heat_mode:
             response_dict["device_type"] = "floor_heating"
