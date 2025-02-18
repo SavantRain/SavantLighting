@@ -12,5 +12,5 @@
   "integration_type": "hub",
   "supported_platforms": ["light", "switch", "climate", "fan", "cover", "binary_sensor"],
   "issue_tracker": "https://github.com/SavantRain/SavantLightingk/issues",
-  "image": "icons/logo.png"
+  "icon": "/icons/icon.png"
 }

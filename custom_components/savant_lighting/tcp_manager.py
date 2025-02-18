@@ -83,6 +83,18 @@ class TCPConnectionManager:
                 response = await asyncio.wait_for(self.reader.read(1024), timeout=5)
                 if response:
                     response_str = bytes.fromhex(response.hex().strip())
+                    
+                    if response_str.__len__ > 12:
+                        _LOGGER.error(f"响应数据长度不正确: {response_str}")
+                        response_dict_array = self._parse_response_array(response_str)
+                        for response_dict in response_dict_array:
+                            if response_dict['device_type'] in self._callbacks and response_dict['device']:
+                                self._callbacks[response_dict['device_type']](response_dict)
+                            else:
+                                _LOGGER.warning(f"未识别的设备类型: {response_dict['device_type']}")
+                        continue
+
+                    
                     response_dict = self._parse_response(response_str)
                     if response_dict['device_type'] in self._callbacks and response_dict['device']:
                         self._callbacks[response_dict['device_type']](response_dict)
@@ -302,3 +314,36 @@ class TCPConnectionManager:
             unique_id = f"{response_dict["module_address"]}_{response_dict["loop_address"]}_{response_dict["device_type"]}"
         response_dict['device'] = self.get_device_by_unique_id(response_dict["device_type"],unique_id)
         return response_dict
+
+
+
+    def _parse_response_array(self, response_str):
+        
+        response_dict_array = []
+        response_header = response_str[:8]
+        response_array = [response_str[i:i+4] for i in range(8, len(response_str), 4)]
+        for response in response_array:
+            response_device = response_header + response
+            response_dict = {
+                "response_str": response_str,
+                "data1": response_device[8],
+                "data2": response_device[9],
+                "data3": response_device[10],
+                "data4": response_device[11],
+                "device_type":"",
+                "sub_device_type":"",
+                "hvac_type": "",
+                "module_address": response_device[4],
+                "loop_address": response_device[5],
+                "unique_id":"",
+                "button_index":"",
+                "device":None
+            }
+            if response_dict["device_type"] == "8button":
+                unique_id = f"{response_dict["module_address"]}_{response_dict["loop_address"]}_{response_dict["button_index"]}_{response_dict["device_type"]}"
+            else:
+                unique_id = f"{response_dict["module_address"]}_{response_dict["loop_address"]}_{response_dict["device_type"]}"
+            response_dict['device'] = self.get_device_by_unique_id(response_dict["device_type"],unique_id)
+            response_dict_array.append(response_dict)
+        
+        
