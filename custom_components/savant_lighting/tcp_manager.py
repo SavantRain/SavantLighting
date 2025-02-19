@@ -315,10 +315,7 @@ class TCPConnectionManager:
         response_dict['device'] = self.get_device_by_unique_id(response_dict["device_type"],unique_id)
         return response_dict
 
-
-
     def _parse_response_array(self, response_str):
-        
         response_dict_array = []
         response_header = response_str[:8]
         response_array = [response_str[i:i+4] for i in range(8, len(response_str), 4)]
@@ -345,5 +342,39 @@ class TCPConnectionManager:
                 unique_id = f"{response_dict["module_address"]}_{response_dict["loop_address"]}_{response_dict["device_type"]}"
             response_dict['device'] = self.get_device_by_unique_id(response_dict["device_type"],unique_id)
             response_dict_array.append(response_dict)
+    
+    async def update_all_device_state(self, devices):
+        command_list = []
+        processed_types = set()
+
+        for device in devices:
+            
+            device_type = device.get("type")
+            host = device.get("host")
+            module_address = device.get('module_address')
+            loop_address = device.get('loop_address')
+            
+            if device_type not in processed_types:
+                processed_types.add(device_type)
+
+                self.host_hex = f"AC{int(host.split('.')[-1]):02X}0010"
+                self.module_hex = f"{int(module_address):02X}"
+                self.loop_hex = f"{int(loop_address):02X}"
+                self.host_bytes = bytes.fromhex(self.host_hex)
+                self.module_bytes = bytes.fromhex(self.module_hex)
+                self.loop_bytes = bytes.fromhex(self.loop_hex)
+
+                if device_type == "light":
+                    command_hex = f'000401000000CA'
+                elif device_type == "switch":
+                    command_hex = f'000401000000CA'
+                elif device_type == "fresh_air":
+                    command_hex = f'000401000000CA'
+                
+                if command_hex:
+                    command_bytes = bytes.fromhex(command_hex)
+                    command = self.host_bytes + self.module_bytes + self.loop_bytes + command_bytes
+                    command_list.append(command)
         
-        
+        await self.send_command_list(command_list)
+        print("更新所有设备状态")

@@ -1,10 +1,12 @@
-from homeassistant.core import HomeAssistant
+from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.config_entries import ConfigEntry
 from .const import DOMAIN
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers.entity_platform import async_get_platforms
 from homeassistant.const import Platform
 from .tcp_manager import TCPConnectionManager
+
 
 PLATFORMS = [Platform.LIGHT, Platform.SWITCH, Platform.CLIMATE, Platform.FAN, Platform.COVER, Platform.BINARY_SENSOR]
 tcp_manager = None
@@ -13,7 +15,6 @@ async def async_setup(hass: HomeAssistant, config: dict):
     """Set up the Savant Lighting component."""
     # hass.states.async_set(f"{DOMAIN}.status", "initialized")
     return True
-
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Savant Lighting from a config entry."""
@@ -32,7 +33,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "devices": entry.data.get("devices", []), 
     }
         
-    # Forward the setup to the correct platform (light and switch)
+    @callback
+    def handle_ha_started(event):
+        devices = hass.data[DOMAIN][entry.entry_id].get("devices")
+        hass.async_create_task(tcp_manager.update_all_device_state(devices))
+    
+    hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, handle_ha_started)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
