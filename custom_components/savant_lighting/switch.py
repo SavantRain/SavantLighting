@@ -81,6 +81,9 @@ class SavantSwitch(SwitchEntity):
         # 延迟更新设备状态，以避免阻塞 setup
         self.hass.async_create_task(self.async_update())
         self.async_write_ha_state()
+        # query_command = self._generate_query_command()
+        # await self.tcp_manager.send_command(query_command)
+
         
     @property
     def unique_id(self):
@@ -121,26 +124,20 @@ class SavantSwitch(SwitchEntity):
         # await self.tcp_manager.send_command(self.command.query_state())
         # 此代码如果不注释，会在每次执行操作后，进行状态查询。
 
-    def update_state(self, response_dict):
-        print('开关收到状态响应: ' + str(response_dict).replace('\\x', ''))
-        device = response_dict['device']
-        device._state = self._parse_device_state(response_dict['response_str'])
-        device.async_write_ha_state()
-        
-    def _parse_device_state(self, response):
-        try:
-            if len(response) >= 12:
-                relay_state = response[8]
+    def _generate_query_command(self) -> bytes:
+        """Generate the query command to get the device state."""
+        host_hex = f"AC{int(self._host.split('.')[-1]):02X}00B0"
+        module_hex = f"{int(self._module_address):02X}"
+        base_command = bytes.fromhex(host_hex + module_hex)
+        return base_command + b'\x01\x00\x01\x08\xCA'
 
-                if relay_state == 0x01:
-                    return True
-                elif relay_state == 0x00:
-                    return False
-                else:
-                    _LOGGER.warning("无法解析继电器状态：{relay_state}")
-                    #转
-            else:
-                _LOGGER.error("无效的设备回复长度：{len(response)}")
-        except Exception as e:
-            _LOGGER.error("解析设备状态出错：{e}")
-            return True
+    def update_state(self, response_dict):
+        print('继电器收到状态响应: ' + str(response_dict).replace('\\x', ''))
+        device = response_dict['device']
+
+        if response_dict["data1"] == 0x00:
+            device._state = False
+        else:
+            device._state = True
+
+        device.async_write_ha_state()

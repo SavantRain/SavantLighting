@@ -70,6 +70,7 @@ class TCPConnectionManager:
             try:
                 self.writer.write(data)
                 await self.writer.drain()
+                await asyncio.sleep(1) 
             except Exception as e:
                 _LOGGER.error(f"发送命令时出错: {e}")
                 self._is_connected = False  # 出错后标记为断开连接
@@ -83,9 +84,10 @@ class TCPConnectionManager:
                 response = await asyncio.wait_for(self.reader.read(1024), timeout=5)
                 if response:
                     response_str = bytes.fromhex(response.hex().strip())
-                    
-                    if response_str.__len__ > 12:
-                        _LOGGER.error(f"响应数据长度不正确: {response_str}")
+
+                    if len(response_str)> 13:
+                    # if response_str.__len__ > 12:
+                    #     _LOGGER.error(f"响应数据长度不正确: {response_str}")
                         response_dict_array = self._parse_response_array(response_str)
                         for response_dict in response_dict_array:
                             if response_dict['device_type'] in self._callbacks and response_dict['device']:
@@ -101,8 +103,12 @@ class TCPConnectionManager:
                         if ('redirect_type' in response_dict):
                             response_dict['device_type'] = response_dict['redirect_type']
                             unique_id = f"{response_dict["module_address"]}_{response_dict["loop_address"]}_{response_dict["device_type"]}"
-                            response_dict['device'] = self.get_device_by_unique_id(response_dict["device_type"],unique_id)
-                            self._callbacks[response_dict['device_type']](response_dict)
+                            device = self.get_device_by_unique_id(response_dict["device_type"],unique_id)
+                            if device: 
+                                response_dict['device'] = device
+                                self._callbacks[response_dict['device_type']](response_dict)
+                            # response_dict['device'] = self.get_device_by_unique_id(response_dict["device_type"],unique_id)
+                            # self._callbacks[response_dict['device_type']](response_dict)
                     else:
                         _LOGGER.warning(f"未识别的设备类型: {response_dict['device_type']}")
                 else:
@@ -316,32 +322,135 @@ class TCPConnectionManager:
         return response_dict
 
     def _parse_response_array(self, response_str):
+        print(response_str)
         response_dict_array = []
-        response_header = response_str[:8]
-        response_array = [response_str[i:i+4] for i in range(8, len(response_str), 4)]
-        for response in response_array:
-            response_device = response_header + response
-            response_dict = {
-                "response_str": response_str,
-                "data1": response_device[8],
-                "data2": response_device[9],
-                "data3": response_device[10],
-                "data4": response_device[11],
-                "device_type":"",
-                "sub_device_type":"",
-                "hvac_type": "",
-                "module_address": response_device[4],
-                "loop_address": response_device[5],
-                "unique_id":"",
-                "button_index":"",
-                "device":None
-            }
-            if response_dict["device_type"] == "8button":
-                unique_id = f"{response_dict["module_address"]}_{response_dict["loop_address"]}_{response_dict["button_index"]}_{response_dict["device_type"]}"
-            else:
+        module_address = response_str[4]
+        response_start = response_str[5]
+        response_length = response_str[7]
+        
+        if response_length == 0x20:
+            response_array = [response_str[i:i+4] for i in range(8, len(response_str), 4)]
+            for idx,response in enumerate(response_array):
+                if idx == 8:
+                    break
+                response_dict = {
+                    "response_str": response_str,
+                    "data1": response[0],
+                    "data2": response[1],
+                    "data3": response[2],
+                    "data4": response[3],
+                    "device_type":"switch",
+                    "sub_device_type":"",
+                    "hvac_type": "",
+                    "module_address": module_address,
+                    "loop_address": idx +1,
+                    "unique_id":"",
+                    "button_index":"",
+                    "device":None
+                }
                 unique_id = f"{response_dict["module_address"]}_{response_dict["loop_address"]}_{response_dict["device_type"]}"
-            response_dict['device'] = self.get_device_by_unique_id(response_dict["device_type"],unique_id)
-            response_dict_array.append(response_dict)
+                response_dict['device'] = self.get_device_by_unique_id(response_dict["device_type"],unique_id)
+                response_dict_array.append(response_dict)
+        
+        elif response_length == 0x40:
+            response_array = [response_str[i:i+4] for i in range(8, len(response_str), 4)]
+            for idx,response in enumerate(response_array):
+                if idx == 16:
+                    break
+                # response_start = 1
+                if response_start == 0x01:
+                    response_start = 1
+                elif response_start == 0x11:
+                    response_start = 17
+                elif response_start == 0x21:
+                    response_start = 33
+                elif response_start == 0x31:
+                    response_start = 49
+                # len = 9 if response_start == 0x21 else 1
+                response_dict = {
+                    "response_str": response_str,
+                    "data1": response[0],
+                    "data2": response[1],
+                    "data3": response[2],
+                    "data4": response[3],
+                    "device_type":"light",
+                    "sub_device_type":"DALI-02",
+                    "hvac_type": "",
+                    "module_address": module_address,
+                    "loop_address": str(idx+response_start),
+                    "unique_id":"",
+                    "button_index":"",
+                    "device":None
+                }
+                unique_id = f"{response_dict["module_address"]}_{response_dict["loop_address"]}_{response_dict["device_type"]}"
+                response_dict['device'] = self.get_device_by_unique_id(response_dict["device_type"],unique_id)
+                response_dict_array.append(response_dict)
+
+        elif response_length == 0x24:
+            response_array = [response_str[i:i+4] for i in range(8, len(response_str), 4)]
+            hvac1_state = response_str[8]
+            hvac2_state = response_str[24]
+            hvac3_state = response_str[32]
+            for idx,response in enumerate(response_array):
+                if idx == 9:
+                    break
+                response_dict = {
+                    "response_str": response_str,
+                    "data1": response[0],
+                    "data2": response[1],
+                    "data3": response[2],
+                    "data4": response[3],
+                    "device_type":"",
+                    "sub_device_type":"",
+                    "hvac_type": "",
+                    "module_address": module_address,
+                    "loop_address": str(idx+response_start),
+                    "unique_id":"",
+                    "button_index":"",
+                    "device":None
+                }
+                if response_dict["data4"] == 0x20 and idx == 0:
+                    response_dict["device_type"] = "climate"
+                    response_dict["loop_address"] = response_dict["data3"]
+                    response_dict["hvac_type"] = "hvac_01"
+                elif response_dict["data4"] == 0x20 and idx == 1 and hvac1_state != 0x00:
+                    response_dict["device_type"] = "climate"
+                    response_dict["loop_address"] = response_dict["data3"]
+                    response_dict["hvac_type"] = "hvac_02"
+                elif response_dict["data4"] == 0x20 and idx == 2 and hvac1_state != 0x00:
+                    response_dict["device_type"] = "climate"
+                    response_dict["loop_address"] = response_dict["data3"]
+                    response_dict["hvac_type"] = "hvac_03"
+                elif response_dict["data4"] == 0x20 and idx == 3 and hvac1_state != 0x00:
+                    response_dict["device_type"] = "climate"
+                    response_dict["loop_address"] = response_dict["data3"]
+                    response_dict["hvac_type"] = "hvac_04"
+                elif response_dict["data4"] == 0x21 and idx == 4:
+                    response_dict["device_type"] = "floor_heating"
+                    response_dict["loop_address"] = response_dict["data3"]
+                    response_dict["hvac_type"] = "hvac_05"
+                elif response_dict["data4"] == 0x21 and idx == 5  and hvac2_state != 0x00:
+                    response_dict["device_type"] = "floor_heating"
+                    response_dict["loop_address"] = response_dict["data3"]
+                    response_dict["hvac_type"] = "hvac_06"
+                elif response_dict["data4"] == 0x22 and idx == 6:
+                    response_dict["device_type"] = "fresh_air"
+                    response_dict["loop_address"] = response_dict["data3"]
+                    response_dict["hvac_type"] = "hvac_07"
+                elif response_dict["data4"] == 0x22 and idx == 7 and hvac3_state != 0x00:
+                    response_dict["device_type"] = "fresh_air"
+                    response_dict["loop_address"] = response_dict["data3"]
+                    response_dict["hvac_type"] = "hvac_08"
+                elif response_dict["data4"] == 0x20 and idx == 8:
+                    response_dict["device_type"] = "climate"
+                    response_dict["loop_address"] = response_dict["data3"]
+                    response_dict["hvac_type"] = "hvac_09"
+                    response_dict["redirect_type"] = "floor_heating"
+
+                unique_id = f"{response_dict["module_address"]}_{response_dict["loop_address"]}_{response_dict["device_type"]}"
+                response_dict['device'] = self.get_device_by_unique_id(response_dict["device_type"],unique_id)
+                response_dict_array.append(response_dict)
+        return response_dict_array
     
     async def update_all_device_state(self, devices):
         command_list = []
@@ -350,6 +459,7 @@ class TCPConnectionManager:
         for device in devices:
             
             device_type = device.get("type")
+            sub_device_type = device.get("sub_device_type")
             host = device.get("host")
             module_address = device.get('module_address')
             loop_address = device.get('loop_address')
@@ -357,24 +467,51 @@ class TCPConnectionManager:
             if device_type not in processed_types:
                 processed_types.add(device_type)
 
-                self.host_hex = f"AC{int(host.split('.')[-1]):02X}0010"
+                self.host_hex = f"AC{int(host.split('.')[-1]):02X}00B0"
                 self.module_hex = f"{int(module_address):02X}"
                 self.loop_hex = f"{int(loop_address):02X}"
                 self.host_bytes = bytes.fromhex(self.host_hex)
                 self.module_bytes = bytes.fromhex(self.module_hex)
                 self.loop_bytes = bytes.fromhex(self.loop_hex)
 
+                command_list1 = []
+
                 if device_type == "light":
-                    command_hex = f'000401000000CA'
-                elif device_type == "switch":
-                    command_hex = f'000401000000CA'
-                elif device_type == "fresh_air":
-                    command_hex = f'000401000000CA'
+                    if sub_device_type == "DALI-02":
+                        # command_list1.append(f"{self.module_hex}01000110CA")
+                        # command_list1.append(f"{self.module_hex}11000110CA")
+                        # command_list1.append(f"{self.module_hex}21000110CA")
+                        # command_list1.append(f"{self.module_hex}31000110CA")
+                        # command_bytes = [bytes.fromhex(cmd) for cmd in command_list1]
+                        command_list1 = [
+                        f"{self.module_hex}01000110CA",
+                        f"{self.module_hex}11000110CA",
+                        f"{self.module_hex}21000110CA",
+                        f"{self.module_hex}31000110CA"
+                    ]
+                        for cmd in command_list1:
+                            command_bytes = bytes.fromhex(cmd)
+                            command_list.append(self.host_bytes + command_bytes)
                 
-                if command_hex:
+                elif device_type == "light":
+                    if sub_device_type == "0603D":
+                        command_hex = f'{self.module_hex}01000106CA'
+                        command_bytes = bytes.fromhex(command_hex)
+                        command_list.append(self.host_bytes + command_bytes)
+
+                elif device_type == "switch":
+                    command_hex = f'{self.module_hex}01000108CA'
                     command_bytes = bytes.fromhex(command_hex)
-                    command = self.host_bytes + self.module_bytes + self.loop_bytes + command_bytes
-                    command_list.append(command)
+                    command_list.append(self.host_bytes + command_bytes)
+                elif device_type == "climate":
+                    command_hex = f'{self.module_hex}01000109CA'
+                    command_bytes = bytes.fromhex(command_hex)
+                    command_list.append(self.host_bytes + command_bytes)
+                
+                # if command_hex:
+                    
+                #     command = self.host_bytes + command_bytes
+                #     command_list.append(command)
         
         await self.send_command_list(command_list)
         print("更新所有设备状态")
