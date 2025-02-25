@@ -29,21 +29,20 @@ class TCPConnectionManager:
             _LOGGER.debug("连接已存在，复用现有连接")
             return True
         try:
-            await asyncio.wait_for(self._establish_connection(), timeout=10)
+            self.reader, self.writer = await asyncio.open_connection(self.host, self.port)
             self._is_connected = True
             _LOGGER.info(f"成功连接到 {self.host}:{self.port}")
+            # 启动后台任务来监听响应
             asyncio.create_task(self._listen_for_responses())
+            
             if not self._keep_alive_task:
                 self._keep_alive_task = asyncio.create_task(self._send_keep_alive())
+            
             return True
         except Exception as e:
             _LOGGER.error(f"连接到 {self.host}:{self.port} 失败: {e}")
             self._is_connected = False
             return False
-        
-    async def _establish_connection(self):
-        """实际建立TCP连接的方法"""
-        self.reader, self.writer = await asyncio.open_connection(self.host, self.port)
 
     async def send_command(self, data):
         """通过TCP发送命令"""
@@ -71,6 +70,7 @@ class TCPConnectionManager:
             try:
                 self.writer.write(data)
                 await self.writer.drain()
+                await asyncio.sleep(1) 
             except Exception as e:
                 _LOGGER.error(f"发送命令时出错: {e}")
                 self._is_connected = False  # 出错后标记为断开连接
@@ -84,9 +84,10 @@ class TCPConnectionManager:
                 response = await asyncio.wait_for(self.reader.read(1024), timeout=5)
                 if response:
                     response_str = bytes.fromhex(response.hex().strip())
-                    
-                    if response_str.__len__ > 12:
-                        _LOGGER.error(f"响应数据长度不正确: {response_str}")
+
+                    if len(response_str)> 13:
+                    # if response_str.__len__ > 12:
+                    #     _LOGGER.error(f"响应数据长度不正确: {response_str}")
                         response_dict_array = self._parse_response_array(response_str)
                         for response_dict in response_dict_array:
                             if response_dict['device_type'] in self._callbacks and response_dict['device']:
@@ -102,8 +103,12 @@ class TCPConnectionManager:
                         if ('redirect_type' in response_dict):
                             response_dict['device_type'] = response_dict['redirect_type']
                             unique_id = f"{response_dict["module_address"]}_{response_dict["loop_address"]}_{response_dict["device_type"]}"
-                            response_dict['device'] = self.get_device_by_unique_id(response_dict["device_type"],unique_id)
-                            self._callbacks[response_dict['device_type']](response_dict)
+                            device = self.get_device_by_unique_id(response_dict["device_type"],unique_id)
+                            if device: 
+                                response_dict['device'] = device
+                                self._callbacks[response_dict['device_type']](response_dict)
+                            # response_dict['device'] = self.get_device_by_unique_id(response_dict["device_type"],unique_id)
+                            # self._callbacks[response_dict['device_type']](response_dict)
                     else:
                         _LOGGER.warning(f"未识别的设备类型: {response_dict['device_type']}")
                 else:
@@ -317,6 +322,7 @@ class TCPConnectionManager:
         return response_dict
 
     def _parse_response_array(self, response_str):
+        print(response_str)
         response_dict_array = []
         response_header = response_str[:8]
         response_array = [response_str[i:i+4] for i in range(8, len(response_str), 4)]
@@ -341,32 +347,62 @@ class TCPConnectionManager:
                 unique_id = f"{response_dict["module_address"]}_{response_dict["loop_address"]}_{response_dict["button_index"]}_{response_dict["device_type"]}"
             else:
                 unique_id = f"{response_dict["module_address"]}_{response_dict["loop_address"]}_{response_dict["device_type"]}"
-            response_dict['device'] = self.get_device_by_unique_id(response_dict["device_type"],unique_id)
-            response_dict_array.append(response_dict)
+                response_dict['device'] = self.get_device_by_unique_id(response_dict["device_type"],unique_id)
+                response_dict_array.append(response_dict)
+        return response_dict_array
     
     async def update_all_device_state(self, devices):
         command_list = []
-        processed_types = set()
-
+        processed_types = ["light","switch","climate"]
+        queryed_device = []
         for device in devices:
             
             device_type = device.get("type")
+            sub_device_type = device.get("sub_device_type")
             host = device.get("host")
             module_address = device.get('module_address')
             loop_address = device.get('loop_address')
             
-            if device_type not in processed_types:
-                processed_types.add(device_type)
+            if module_address in queryed_device:
+                continue
 
-                self.host_hex = f"AC{int(host.split('.')[-1]):02X}0010"
+            queryed_device.append(module_address)
+
+            
+            if device_type in processed_types:
+
+                self.host_hex = f"AC{int(host.split('.')[-1]):02X}00B0"
                 self.module_hex = f"{int(module_address):02X}"
                 self.loop_hex = f"{int(loop_address):02X}"
                 self.host_bytes = bytes.fromhex(self.host_hex)
                 self.module_bytes = bytes.fromhex(self.module_hex)
                 self.loop_bytes = bytes.fromhex(self.loop_hex)
 
+                command_list1 = []
+
                 if device_type == "light":
-                    command_hex = f'000401000000CA'
+                    if sub_device_type == "DALI-02":
+                        # command_list1.append(f"{self.module_hex}01000110CA")
+                        # command_list1.append(f"{self.module_hex}11000110CA")
+                        # command_list1.append(f"{self.module_hex}21000110CA")
+                        # command_list1.append(f"{self.module_hex}31000110CA")
+                        # command_bytes = [bytes.fromhex(cmd) for cmd in command_list1]
+                        command_list1 = [
+                        f"{self.module_hex}01000110CA",
+                        f"{self.module_hex}11000110CA",
+                        f"{self.module_hex}21000110CA",
+                        f"{self.module_hex}31000110CA"
+                    ]
+                        for cmd in command_list1:
+                            command_bytes = bytes.fromhex(cmd)
+                            command_list.append(self.host_bytes + command_bytes)
+                
+                elif device_type == "light":
+                    if sub_device_type == "0603D":
+                        command_hex = f'{self.module_hex}01000106CA'
+                        command_bytes = bytes.fromhex(command_hex)
+                        command_list.append(self.host_bytes + command_bytes)
+
                 elif device_type == "switch":
                     command_hex = f'000401000000CA'
                 elif device_type == "fresh_air":
@@ -374,8 +410,16 @@ class TCPConnectionManager:
                 
                 if command_hex:
                     command_bytes = bytes.fromhex(command_hex)
-                    command = self.host_bytes + self.module_bytes + self.loop_bytes + command_bytes
-                    command_list.append(command)
+                    command_list.append(self.host_bytes + command_bytes)
+                elif device_type == "climate":
+                    command_hex = f'{self.module_hex}01000109CA'
+                    command_bytes = bytes.fromhex(command_hex)
+                    command_list.append(self.host_bytes + command_bytes)
+
+                # if command_hex:
+                    
+                #     command = self.host_bytes + command_bytes
+                #     command_list.append(command)
         
         await self.send_command_list(command_list)
         print("更新所有设备状态")

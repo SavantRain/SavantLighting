@@ -134,6 +134,7 @@ class SavantLight(LightEntity):
 
     async def async_turn_on(self, **kwargs):
         self._state = True
+        await self.tcp_manager.send_command(self.command.turnonoff("on"))
         if "brightness" in kwargs:
             brightness_value = kwargs["brightness"]
             self._brightness_percentage = int((brightness_value / 255) * 100)
@@ -170,7 +171,7 @@ class SavantLight(LightEntity):
         # await self.tcp_manager.send_command(hex_command)
 
     async def async_turn_off(self, **kwargs):
-        self._state = True
+        self._state = False
         await self.tcp_manager.send_command(self.command.turnonoff("off"))
 
     async def async_update(self):
@@ -178,7 +179,7 @@ class SavantLight(LightEntity):
         # await self.tcp_manager.send_command(self.command.query_state())
 
     def update_state(self, response_dict):
-        print('开关收到状态响应: ' + str(response_dict).replace('\\x', ''))
+        print('DALI收到状态响应: ' + str(response_dict).replace('\\x', ''))
         device = response_dict['device']
 
         if response_dict['sub_device_type'] == 'DALI-01':
@@ -198,7 +199,8 @@ class SavantLight(LightEntity):
                         device._state = False
                 else:
                         device._state = True
-                device._color_temp = 1000000/(response_dict['data2']*100)
+                if response_dict['data2'] != 0x00:
+                    device._color_temp = 1000000/(response_dict['data2']*100)
 
         elif response_dict['sub_device_type'] == '0603D':
             if response_dict['data4'] == 0x10:

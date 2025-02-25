@@ -92,4 +92,4 @@ class SavantPersonSensor(BinarySensorEntity):
 
         # _LOGGER.debug(f"Human Presence Sensor received state response: {response_dict}")
         # self._state = response_dict.get("state", STATE_OFF)
-        self.async_write_ha_state()
+        device.async_write_ha_state()
