@@ -189,7 +189,7 @@ class SavantLight(LightEntity):
             else:
                 device._state = True
 
-        if response_dict['sub_device_type'] == 'DALI-01' and response_dict['data4'] == 0x12:
+        elif response_dict['sub_device_type'] == 'DALI-01' and response_dict['data4'] == 0x12:
             device._color_temp = 1000000/(response_dict['data1']*100)
 
         elif response_dict['sub_device_type'] == 'DALI-02' and response_dict['data4'] == 0x15:
