@@ -52,26 +52,25 @@ class SavantLight(LightEntity):
         self.tcp_manager.register_callback("light", self.update_state)
         self.command = LightCommand(host,module_address,loop_address,gradient_time)
         if self._sub_device_type == "rgb":
-            self._color_temp = 370
+            self._color_temp_mireds = 370
             self._min_mireds = 152
             self._max_mireds = 667
+            self._color_temp_kelvin = int(1000000 / 370)  # converting mireds to kelvin
+            self._attr_min_color_temp_kelvin = int(1000000 / 667)  # converting max mireds to kelvin
+            self._attr_max_color_temp_kelvin = int(1000000 / 152)  # converting min mireds to kelvin
             self._color_mode = ColorMode.HS
             self._hs_color = (0, 0)
-            self._supported_color_modes = {ColorMode.HS, ColorMode.COLOR_TEMP, ColorMode.BRIGHTNESS}  # 支持HS颜色模式和亮度
-        elif self._sub_device_type == "0603D":
+            self._supported_color_modes = {ColorMode.HS, ColorMode.COLOR_TEMP, ColorMode.BRIGHTNESS}
+        elif self._sub_device_type in ("DALI-01", "DALI-02"):
+            self._color_temp_mireds = 370
+            self._min_mireds = 152
+            self._max_mireds = 667
+            self._color_temp_kelvin = int(1000000 / 370)  # converting mireds to kelvin
+            self._attr_min_color_temp_kelvin = int(1000000 / 667)  # converting max mireds to kelvin
+            self._attr_max_color_temp_kelvin = int(1000000 / 152)  # converting min mireds to kelvin
+            self._supported_color_modes = {ColorMode.COLOR_TEMP, ColorMode.BRIGHTNESS}
+        elif self._sub_device_type in ("single", "0603D"):
             self._supported_color_modes = {ColorMode.BRIGHTNESS}
-        elif self._sub_device_type == "DALI-01":
-            self._color_temp = 370
-            self._min_mireds = 152
-            self._max_mireds = 667
-            self._supported_color_modes = {ColorMode.COLOR_TEMP, ColorMode.BRIGHTNESS}  # 支持HS颜色模式和亮度
-        elif self._sub_device_type == "DALI-02":
-            self._color_temp = 370
-            self._min_mireds = 152
-            self._max_mireds = 667
-            self._supported_color_modes = {ColorMode.COLOR_TEMP, ColorMode.BRIGHTNESS}  # 支持HS颜色模式和亮度
-        elif self._sub_device_type == "single":
-            self._supported_color_modes = {ColorMode.BRIGHTNESS}  # 支持HS颜色模式和亮
 
     async def async_added_to_hass(self):
         """Callback when entity is added to hass."""
@@ -85,23 +84,23 @@ class SavantLight(LightEntity):
 
     @property
     def is_on(self):
-        """Return true if the light is on."""
         return self._state
 
     @property
     def brightness(self):
-        """Return the brightness of the light."""
         return self._brightness
 
     @property
     def hs_color(self):
-        """Return the hue and saturation color value."""
         return self._hs_color
 
     @property
     def color_temp(self):
-        """Return the color temperature."""
-        return self._color_temp
+        return self._color_temp_mireds
+
+    @property
+    def color_temp_kelvin(self):
+        return int(1000000 / self._color_temp_mireds)
 
     @property
     def min_mireds(self):
@@ -113,7 +112,6 @@ class SavantLight(LightEntity):
 
     @property
     def supported_color_modes(self):
-        """Flag supported color modes."""
         return self._supported_color_modes
 
     @property
@@ -134,7 +132,9 @@ class SavantLight(LightEntity):
 
     async def async_turn_on(self, **kwargs):
         self._state = True
-        await self.tcp_manager.send_command(self.command.turnonoff("on"))
+        command_list = []
+        command_list.append(self.command.turnonoff("on"))
+
         if "brightness" in kwargs:
             brightness_value = kwargs["brightness"]
             self._brightness_percentage = int((brightness_value / 255) * 100)
@@ -149,34 +149,37 @@ class SavantLight(LightEntity):
                     hex_command = self.command.dali02_brightness(self._brightness_percentage)
                 case "single":
                     hex_command = self.command.brightness(self._brightness_percentage)
-            await self.tcp_manager.send_command(hex_command)
+            command_list.append(hex_command)
         if "color_temp_kelvin" in kwargs:
-            self.color_temp_kelvin_value = str(kwargs['color_temp_kelvin'])[:2]
+            kelvin_value = str(kwargs['color_temp_kelvin'])[:2]
             self._color_mode = ColorMode.COLOR_TEMP
             match self._sub_device_type:
                 case "rgb":
-                    hex_command = self.command.rgb_color_temp(self.color_temp_kelvin_value)
+                    hex_command = self.command.rgb_color_temp(kelvin_value)
                 case "DALI-01":
-                    hex_command = self.command.dali01_color_temp(self.color_temp_kelvin_value)
+                    hex_command = self.command.dali01_color_temp(kelvin_value)
                 case "DALI-02":
-                    hex_command = self.command.dali02_color_temp(self.color_temp_kelvin_value)
-            await self.tcp_manager.send_command(hex_command)
+                    hex_command = self.command.dali02_color_temp(kelvin_value)
+            command_list.append(hex_command)
         if "hs_color" in kwargs:
             self._hs_color = kwargs["hs_color"]
             self._color_mode = ColorMode.HS
             hex_command = self.command.rgb_color(self._hs_color)
-            await self.tcp_manager.send_command(hex_command)
+            command_list.append(hex_command)
+        self.async_write_ha_state()
+        await self.tcp_manager.send_command_list(command_list)
 
-        # hex_command = self.command.turnonoff("on")
-        # await self.tcp_manager.send_command(hex_command)
 
     async def async_turn_off(self, **kwargs):
         self._state = False
+        self.async_write_ha_state()
         await self.tcp_manager.send_command(self.command.turnonoff("off"))
 
+
     async def async_update(self):
-        self._state = True
-        self.async_write_ha_state()
+        # self._state = True
+        # self.async_write_ha_state()
+        return
 
     def update_state(self, response_dict):
         print('DALI收到状态响应: ' + str(response_dict).replace('\\x', ''))
@@ -190,7 +193,8 @@ class SavantLight(LightEntity):
                 device._state = True
 
         elif response_dict['sub_device_type'] == 'DALI-01' and response_dict['data4'] == 0x12:
-            device._color_temp = 1000000/(response_dict['data1']*100)
+            device._color_temp_mireds = response_dict['data1'] * 100
+            device._color_temp_kelvin = int(1000000 / device._color_temp_mireds)
 
         elif response_dict['sub_device_type'] == 'DALI-02' and response_dict['data4'] == 0x15:
             device._brightness = response_dict['data1'] * 255 / 100
@@ -199,7 +203,8 @@ class SavantLight(LightEntity):
             else:
                 device._state = True
             if response_dict['data2'] != 0x00:
-                device._color_temp = 1000000/(response_dict['data2']*100)
+                device._color_temp_mireds = 1000000/(response_dict['data2']*100)
+                device._color_temp_kelvin = int(1000000 / device._color_temp_mireds)
 
         elif response_dict['sub_device_type'] == '0603D' and response_dict['data4'] == 0x10:
             device._brightness = response_dict['data1'] * 255 / 100
