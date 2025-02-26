@@ -9,13 +9,13 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
     """Handle the options flow for Savant Lighting."""
 
     def __init__(self, config_entry):
-        """Initialize options flow."""  
+        """Initialize options flow."""
         self.config_entry = config_entry
         self.host = config_entry.data.get("host")
         self.port = config_entry.data.get("port")
         self.device_type = None  # 用于存储当前正在配置的设备类型
         self.sub_device_type = None # 用于存储当前正在配置的设备子类型
-        
+
     async def async_step_init(self, user_input=None):
         """Manage the options for devices: add or manage devices."""
         if user_input is not None:
@@ -43,7 +43,7 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
             elif user_input == "curtain_menu":
                 self.device_type = "cover"
                 return await self.async_step_curtain_menu()
-            
+
         # 显示初始操作菜单，确保选项键与步骤方法一致
         # async_step_{step}  键名={step}方法名
         return self.async_show_menu(
@@ -57,7 +57,7 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
                 "light_rgb_menu": "管理【DALI-RGB】灯光",
                 "climate_menu": "管理空调",
                 "floor_heating_menu": "管理地暖",
-                "fresh_air_menu": "管理新风设备",
+                "fresh_air_menu": "管理新风",
                 "8button_menu": "管理8键开关",
                 "curtain_menu": "管理窗帘",
                 "person_sensor_menu": "管理人体传感器",
@@ -65,10 +65,10 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
             },
             description_placeholders={"desc": "选择操作来管理子设备"},
         )
-        
+
     async def async_step_light_menu(self, user_input=None):
         return await self.async_step_device_menu(device_type="light",user_input=user_input, sub_device_type="single")
-    
+
     async def async_step_light_006_menu(self, user_input=None):
         return await self.async_step_device_menu(device_type="light",user_input=user_input, sub_device_type="0603D")
 
@@ -86,25 +86,25 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
 
     async def async_step_climate_menu(self, user_input=None):
         return await self.async_step_device_menu(device_type="climate", user_input=user_input)
-        
+
     async def async_step_floor_heating_menu(self, user_input=None):
         return await self.async_step_device_menu(device_type="floor_heating", user_input=user_input)
-    
+
     async def async_step_fresh_air_menu(self, user_input=None):
         return await self.async_step_device_menu(device_type="fresh_air", user_input=user_input)
 
     async def async_step_8button_menu(self, user_input=None):
         return await self.async_step_device_menu(device_type="8button", user_input=user_input)
-    
+
     async def async_step_curtain_menu(self, user_input=None):
-        return await self.async_step_device_menu(device_type="curtain", user_input=user_input) 
-    
+        return await self.async_step_device_menu(device_type="curtain", user_input=user_input)
+
     async def async_step_person_sensor_menu(self, user_input=None):
         return await self.async_step_device_menu(device_type="person_sensor", user_input=user_input)
-    
+
     async def async_step_scene_switch_menu(self, user_input=None):
         return await self.async_step_device_menu(device_type="scene_switch", user_input=user_input)
-    
+
     async def async_step_device_menu(self, user_input=None, device_type=None, sub_device_type=None):
         """Second level menu: Add, configure, or delete devices."""
         self.device_type = device_type
@@ -127,7 +127,7 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
             },
             description_placeholders={"desc": f"选择操作来管理{self.device_type.capitalize()}设备"},
         )
-        
+
     async def async_step_add(self, user_input=None):
         """Step to add a new device."""
         host = self.config_entry.data.get("host")
@@ -137,7 +137,7 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
             if not entry:
                 raise ValueError("Configuration entry not found")
             devices = entry.data.get("devices", [])
-            
+
              # 检查是否有重复的 module_address 和 loop_address
             if self.device_type == 'scene_switch':
                 user_input["module_address"] = 'scene' + str(user_input['scene_number'])
@@ -175,7 +175,7 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
                 device_data["selected_buttons"] = user_input["selected_buttons"]
             if self.device_type == 'scene_switch':
                 device_data["scene_number"] = user_input["scene_number"]
-                
+
             devices.append(device_data)
 
             self.hass.config_entries.async_update_entry(
@@ -218,11 +218,11 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
                 vol.Required("loop_address", default=""): int,
             })
         return self.async_show_form(step_id="add", data_schema=data_schema)
-    
+
     async def async_step_configure(self, user_input=None):
         """Step to configure an existing device."""
         devices = self._get_devices_of_type(self.device_type)
-        
+
         if not devices:
             return self.async_abort(reason="没有找到设备")
 
@@ -248,7 +248,7 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
             data_schema=data_schema,
             description_placeholders={"desc": f"选择要配置的{self.device_type.capitalize()}设备"}
         )
-        
+
     async def async_step_delete(self, user_input=None):
         devices = self._get_devices_of_type(self.device_type)
         if not devices:
@@ -282,7 +282,7 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
         """Step to edit the selected device's configuration."""
         # 根据用户选择的设备名称找到设备数据
         selected_device_data = self._get_device_by_name(self.selected_device)
-        
+
         if user_input is not None:
             # 更新设备配置数据
             updated_device_data = {
@@ -338,7 +338,7 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
             data_schema=data_schema,
             description_placeholders=description_placeholders
         )
-        
+
     async def _register_device_and_entity(self, device_data, device_type):
         """Register device in Home Assistant's device registry."""
         device_registry = dr.async_get(self.hass)
@@ -380,7 +380,7 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
                     buttons_to_remove = set(old_selected_buttons) - set(new_selected_buttons)
                     updated_device['selected_buttons'] = new_selected_buttons
                 devices[index] = updated_device
-                
+
         updated_data = {**entry.data, "devices": devices}
         self.hass.config_entries.async_update_entry(entry, data=updated_data)
         await self.hass.config_entries.async_reload(entry.entry_id)
@@ -427,7 +427,7 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
         updated_devices = [device for device in devices if f"{device['name']}|{device['module_address']}|{device['loop_address']}|{device['type']}" != device_param]
         updated_data = {**entry.data, "devices": updated_devices}
         self.hass.config_entries.async_update_entry(entry, data=updated_data)
-        
+
     def _get_devices_of_type(self, device_type):
         """Retrieve devices of a specific type from the config entry."""
         entry = self.hass.config_entries.async_get_entry(self.config_entry.entry_id)
@@ -440,7 +440,7 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
         if self.sub_device_type is not None:
             filtered_devices = [device for device in devices if device["sub_device_type"] == self.sub_device_type]
         return filtered_devices
-    
+
     def _get_device_by_name(self, device_param):
         """Retrieve a device by its name from the config entry."""
         entry = self.hass.config_entries.async_get_entry(self.config_entry.entry_id)
