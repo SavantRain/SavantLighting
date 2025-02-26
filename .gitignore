@@ -5,3 +5,4 @@ home-assistant.log*
 __pycache__
 home-assistant_v2.db*
 .venv
+.vscode
