@@ -204,10 +204,7 @@ class ClimateCommand:
         elif command == HVACMode.DRY:
             command_list.append(f"{loop_hex_value * 9 - 287:02X}000401000000CA")
             command_list.append(f"{loop_hex_value * 9 - 286:02X}000402000000CA")
-        return [
-            self.host_bytes + self.module_bytes + bytes.fromhex(cmd)
-            for cmd in command_list
-        ]
+        return [self.host_bytes + self.module_bytes + bytes.fromhex(cmd) for cmd in command_list]
 
     def temperature(self, temperature):
         if temperature.startswith("temp:"):
