@@ -22,7 +22,7 @@ class TCPConnectionManager:
     def set_hass(self, hass):
         """设置 Home Assistant 的核心对象"""
         self.hass = hass
-        
+
     async def connect(self):
         """建立TCP连接"""
         if self._is_connected:
@@ -34,10 +34,10 @@ class TCPConnectionManager:
             _LOGGER.info(f"成功连接到 {self.host}:{self.port}")
             # 启动后台任务来监听响应
             asyncio.create_task(self._listen_for_responses())
-            
+
             if not self._keep_alive_task:
                 self._keep_alive_task = asyncio.create_task(self._send_keep_alive())
-            
+
             return True
         except Exception as e:
             _LOGGER.error(f"连接到 {self.host}:{self.port} 失败: {e}")
@@ -70,12 +70,12 @@ class TCPConnectionManager:
             try:
                 self.writer.write(data)
                 await self.writer.drain()
-                await asyncio.sleep(1) 
+                await asyncio.sleep(1)
             except Exception as e:
                 _LOGGER.error(f"发送命令时出错: {e}")
                 self._is_connected = False  # 出错后标记为断开连接
         return True, True
-    
+
     async def _listen_for_responses(self):
         """后台任务：监听响应并处理"""
         while self._is_connected:
@@ -96,7 +96,7 @@ class TCPConnectionManager:
                                 _LOGGER.warning(f"未识别的设备类型: {response_dict['device_type']}")
                         continue
 
-                    
+
                     response_dict = self._parse_response(response_str)
                     if response_dict['device_type'] in self._callbacks and response_dict['device']:
                         self._callbacks[response_dict['device_type']](response_dict)
@@ -104,7 +104,7 @@ class TCPConnectionManager:
                             response_dict['device_type'] = response_dict['redirect_type']
                             unique_id = f"{response_dict["module_address"]}_{response_dict["loop_address"]}_{response_dict["device_type"]}"
                             device = self.get_device_by_unique_id(response_dict["device_type"],unique_id)
-                            if device: 
+                            if device:
                                 response_dict['device'] = device
                                 self._callbacks[response_dict['device_type']](response_dict)
                             # response_dict['device'] = self.get_device_by_unique_id(response_dict["device_type"],unique_id)
@@ -121,7 +121,7 @@ class TCPConnectionManager:
                 _LOGGER.error(f"监听响应时出错: {e}")
                 self._is_connected = False  # 出错后标记为断开连接
                 break
-            
+
     async def close(self):
         """关闭TCP连接"""
         if self.writer and not self.writer.is_closing():
@@ -150,7 +150,7 @@ class TCPConnectionManager:
             except Exception as e:
                 _LOGGER.error(f"发送心跳包失败: {e}")
                 break
-   
+
     async def get_response(self):
         """获取缓存中的响应,#暂时无调用"""
         try:
@@ -170,7 +170,7 @@ class TCPConnectionManager:
             _LOGGER.error(f"未找到 unique_id 为 {unique_id} 的设备")
             return None
         entity_id = entity_entry.entity_id
-        
+
 
         if device_type in self.hass.data:
             device = self.hass.data[device_type].get_entity(entity_id)
@@ -198,7 +198,7 @@ class TCPConnectionManager:
         """注册回调函数"""
         self._callbacks[device_type] = callback
         # self._callbacks.append(callback)
-   
+
     def _parse_response(self, response_str):
         print(response_str)
         hvac_off = [0x01, 0x0A, 0x13, 0x1C, 0x25, 0x2E, 0x37, 0x40, 0x49, 0x52, 0x5B, 0x64, 0x6D, 0x76, 0x7F, 0x88]
@@ -225,11 +225,11 @@ class TCPConnectionManager:
             "unique_id":"",
             "button_index":"",
             "device":None
-            
+
         }
         if response_dict["data2"] == 0x00 and response_dict["data3"] == 0x00 and response_dict["data4"] == 0x00:
             response_dict["device_type"] = "switch"
-        
+
         elif response_dict["data2"] == 0x04 and response_dict["data3"] == 0x00 and response_dict["data4"] == 0x00 and response_dict["loop_address"] in shade_address:
             response_dict["loop_address"] = (response_dict["loop_address"] - 17) // 3
             response_dict["device_type"] = "curtain"
@@ -256,17 +256,17 @@ class TCPConnectionManager:
         elif response_dict["data4"] == 0x15:
             response_dict["device_type"] = "light"
             response_dict["sub_device_type"] = "DALI-02"
-        
+
         elif response_dict["data2"] == 0x00 and response_dict["data3"] == 0x00 and response_dict["data4"] == 0x10:
             response_dict["device_type"] = "light"
             response_dict["sub_device_type"] = "0603D"
-        
+
         elif response_dict["data2"] == 0x00 and response_dict["data4"] == 0x20 and response_dict["loop_address"] in hvac_off:
             response_dict["device_type"] = "climate"
             # response_dict["loop_address"] = (response_dict["loop_address"] + 287) // 9
             response_dict["loop_address"] = response_dict["data3"]
             response_dict["hvac_type"] = "hvac_01"
-        
+
         elif response_dict["data2"] == 0x00 and response_dict["data4"] == 0x20 and response_dict["loop_address"] in hvac_mode:
             response_dict["device_type"] = "climate"
             # response_dict["loop_address"] = (response_dict["loop_address"] + 286) // 9
@@ -278,13 +278,13 @@ class TCPConnectionManager:
             # response_dict["loop_address"] = (response_dict["loop_address"] + 285) // 9
             response_dict["loop_address"] = response_dict["data3"]
             response_dict["hvac_type"] = "hvac_03"
-        
+
         elif response_dict["data2"] == 0x00 and response_dict["data4"] == 0x20 and response_dict["loop_address"] in hvac_current_set_point:
             response_dict["device_type"] = "climate"
             # response_dict["loop_address"] = (response_dict["loop_address"] + 284) // 9
             response_dict["loop_address"] = response_dict["data3"]
             response_dict["hvac_type"] = "hvac_04"
-        
+
         elif response_dict["data2"] == 0x00 and response_dict["data4"] == 0x20 and response_dict["loop_address"] in hvac_current_temperature:
             # hvac_fhs = ["climate", "floor_heating"]
             # for hvac_fh in hvac_fhs:
@@ -293,7 +293,7 @@ class TCPConnectionManager:
             response_dict["loop_address"] = response_dict["data3"]
             response_dict["hvac_type"] = "hvac_09"
             response_dict["redirect_type"] = "floor_heating"
-            
+
         elif response_dict["data2"] == 0x00 and response_dict["data4"] == 0x21 and response_dict["loop_address"] in floor_heat_mode:
             response_dict["device_type"] = "floor_heating"
             response_dict["loop_address"] = response_dict["data3"]
@@ -327,7 +327,7 @@ class TCPConnectionManager:
         module_address = response_str[4]
         response_start = response_str[5]
         response_length = response_str[7]
-        
+
         if response_length == 0x20:
             response_array = [response_str[i:i+4] for i in range(8, len(response_str), 4)]
             for idx,response in enumerate(response_array):
@@ -350,8 +350,9 @@ class TCPConnectionManager:
                 }
                 unique_id = f"{response_dict["module_address"]}_{response_dict["loop_address"]}_{response_dict["device_type"]}"
                 response_dict['device'] = self.get_device_by_unique_id(response_dict["device_type"],unique_id)
-                response_dict_array.append(response_dict)
-        
+                if response_dict['device']:
+                    response_dict_array.append(response_dict)
+
         elif response_length == 0x40:
             response_array = [response_str[i:i+4] for i in range(8, len(response_str), 4)]
             for idx,response in enumerate(response_array):
@@ -446,30 +447,31 @@ class TCPConnectionManager:
                     response_dict["loop_address"] = response_dict["data3"]
                     response_dict["hvac_type"] = "hvac_09"
                     response_dict["redirect_type"] = "floor_heating"
-
+                else:
+                    continue
                 unique_id = f"{response_dict["module_address"]}_{response_dict["loop_address"]}_{response_dict["device_type"]}"
                 response_dict['device'] = self.get_device_by_unique_id(response_dict["device_type"],unique_id)
                 response_dict_array.append(response_dict)
         return response_dict_array
-    
+
     async def update_all_device_state(self, devices):
         command_list = []
         processed_types = ["light","switch","climate"]
         queryed_device = []
         for device in devices:
-            
+
             device_type = device.get("type")
             sub_device_type = device.get("sub_device_type")
             host = device.get("host")
             module_address = device.get('module_address')
             loop_address = device.get('loop_address')
-            
+
             if module_address in queryed_device:
                 continue
 
             queryed_device.append(module_address)
 
-            
+
             if device_type in processed_types:
 
                 self.host_hex = f"AC{int(host.split('.')[-1]):02X}00B0"
@@ -497,7 +499,7 @@ class TCPConnectionManager:
                         for cmd in command_list1:
                             command_bytes = bytes.fromhex(cmd)
                             command_list.append(self.host_bytes + command_bytes)
-                
+
                 elif device_type == "light":
                     if sub_device_type == "0603D":
                         command_hex = f'{self.module_hex}01000106CA'
@@ -514,9 +516,9 @@ class TCPConnectionManager:
                     command_list.append(self.host_bytes + command_bytes)
 
                 # if command_hex:
-                    
+
                 #     command = self.host_bytes + command_bytes
                 #     command_list.append(command)
-        
+
         await self.send_command_list(command_list)
         print("更新所有设备状态")
