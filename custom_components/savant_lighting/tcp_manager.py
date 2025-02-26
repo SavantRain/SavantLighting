@@ -6,14 +6,13 @@ _LOGGER = logging.getLogger(__name__)
 
 class TCPConnectionManager:
     """管理与设备的TCP连接"""
-    def __init__(self, host, port, state_update_callback):
+    def __init__(self, host, port):
         self.host = host
         self.port = port
         self.hass = None
         self.reader = None
         self.writer = None
         self._is_connected = False
-        # self.state_update_callback = state_update_callback  # 回调函数
         self.response_queue = asyncio.Queue()  # 用于缓存响应
         self.command_no = 0
         self._keep_alive_task = None  # 定时发送任务
@@ -452,6 +451,7 @@ class TCPConnectionManager:
                 unique_id = f"{response_dict["module_address"]}_{response_dict["loop_address"]}_{response_dict["device_type"]}"
                 response_dict['device'] = self.get_device_by_unique_id(response_dict["device_type"],unique_id)
                 response_dict_array.append(response_dict)
+
         return response_dict_array
 
     async def update_all_device_state(self, devices):
@@ -465,47 +465,32 @@ class TCPConnectionManager:
             host = device.get("host")
             module_address = device.get('module_address')
             loop_address = device.get('loop_address')
-
             if module_address in queryed_device:
                 continue
 
             queryed_device.append(module_address)
-
-
             if device_type in processed_types:
-
                 self.host_hex = f"AC{int(host.split('.')[-1]):02X}00B0"
                 self.module_hex = f"{int(module_address):02X}"
                 self.loop_hex = f"{int(loop_address):02X}"
                 self.host_bytes = bytes.fromhex(self.host_hex)
                 self.module_bytes = bytes.fromhex(self.module_hex)
                 self.loop_bytes = bytes.fromhex(self.loop_hex)
-
                 command_list1 = []
-
-                if device_type == "light":
-                    if sub_device_type == "DALI-02":
-                        # command_list1.append(f"{self.module_hex}01000110CA")
-                        # command_list1.append(f"{self.module_hex}11000110CA")
-                        # command_list1.append(f"{self.module_hex}21000110CA")
-                        # command_list1.append(f"{self.module_hex}31000110CA")
-                        # command_bytes = [bytes.fromhex(cmd) for cmd in command_list1]
-                        command_list1 = [
+                if device_type == "light" and sub_device_type == "DALI-02":
+                    command_list1 = [
                         f"{self.module_hex}01000110CA",
                         f"{self.module_hex}11000110CA",
                         f"{self.module_hex}21000110CA",
                         f"{self.module_hex}31000110CA"
                     ]
-                        for cmd in command_list1:
-                            command_bytes = bytes.fromhex(cmd)
-                            command_list.append(self.host_bytes + command_bytes)
-
-                elif device_type == "light":
-                    if sub_device_type == "0603D":
-                        command_hex = f'{self.module_hex}01000106CA'
-                        command_bytes = bytes.fromhex(command_hex)
+                    for cmd in command_list1:
+                        command_bytes = bytes.fromhex(cmd)
                         command_list.append(self.host_bytes + command_bytes)
-
+                elif device_type == "light" and sub_device_type == "0603D":
+                    command_hex = f'{self.module_hex}01000106CA'
+                    command_bytes = bytes.fromhex(command_hex)
+                    command_list.append(self.host_bytes + command_bytes)
                 elif device_type == "switch":
                     command_hex = f'{self.module_hex}01000108CA'
                     command_bytes = bytes.fromhex(command_hex)

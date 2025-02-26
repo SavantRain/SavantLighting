@@ -16,7 +16,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     """Set up Savant Light entities from a config entry."""
     config = hass.data[DOMAIN].get(entry.entry_id, {})
     devices = config.get("devices", [])
-    
+
     lights = [
         SavantLight(
             name=device["name"],
@@ -77,12 +77,12 @@ class SavantLight(LightEntity):
         """Callback when entity is added to hass."""
         self.hass.async_create_task(self.async_update())
         self.async_write_ha_state()
-        
+
     @property
     def unique_id(self):
         """Return a unique ID for this light."""
         return f"{self._module_address}_{self._loop_address}_light"
-    
+
     @property
     def is_on(self):
         """Return true if the light is on."""
@@ -97,7 +97,7 @@ class SavantLight(LightEntity):
     def hs_color(self):
         """Return the hue and saturation color value."""
         return self._hs_color
-    
+
     @property
     def color_temp(self):
         """Return the color temperature."""
@@ -106,7 +106,7 @@ class SavantLight(LightEntity):
     @property
     def min_mireds(self):
         return self._min_mireds
-    
+
     @property
     def max_mireds(self):
         return self._max_mireds
@@ -139,11 +139,11 @@ class SavantLight(LightEntity):
             brightness_value = kwargs["brightness"]
             self._brightness_percentage = int((brightness_value / 255) * 100)
             match self._sub_device_type:
-                case "0603D": 
+                case "0603D":
                     hex_command = self.command.brightness(self._brightness_percentage)
-                case "rgb": 
+                case "rgb":
                     hex_command = self.command.brightness(self._brightness_percentage)
-                case "DALI-01": 
+                case "DALI-01":
                     hex_command = self.command.dali01_brightness(self._brightness_percentage)
                 case "DALI-02":
                     hex_command = self.command.dali02_brightness(self._brightness_percentage)
@@ -154,9 +154,9 @@ class SavantLight(LightEntity):
             self.color_temp_kelvin_value = str(kwargs['color_temp_kelvin'])[:2]
             self._color_mode = ColorMode.COLOR_TEMP
             match self._sub_device_type:
-                case "rgb": 
+                case "rgb":
                     hex_command = self.command.rgb_color_temp(self.color_temp_kelvin_value)
-                case "DALI-01": 
+                case "DALI-01":
                     hex_command = self.command.dali01_color_temp(self.color_temp_kelvin_value)
                 case "DALI-02":
                     hex_command = self.command.dali02_color_temp(self.color_temp_kelvin_value)
@@ -166,7 +166,7 @@ class SavantLight(LightEntity):
             self._color_mode = ColorMode.HS
             hex_command = self.command.rgb_color(self._hs_color)
             await self.tcp_manager.send_command(hex_command)
-        
+
         # hex_command = self.command.turnonoff("on")
         # await self.tcp_manager.send_command(hex_command)
 
@@ -196,9 +196,9 @@ class SavantLight(LightEntity):
             if response_dict['data4'] == 0x15:
                 device._brightness = response_dict['data1'] * 255 / 100
                 if response_dict['data1'] == 0x00:
-                        device._state = False
+                    device._state = False
                 else:
-                        device._state = True
+                    device._state = True
                 if response_dict['data2'] != 0x00:
                     device._color_temp = 1000000/(response_dict['data2']*100)
 
@@ -206,9 +206,9 @@ class SavantLight(LightEntity):
             if response_dict['data4'] == 0x10:
                 device._brightness = response_dict['data1'] * 255 / 100
                 if response_dict['data1'] == 0x00:
-                        device._state = False
+                    device._state = False
                 else:
-                        device._state = True
+                    device._state = True
 
 
         # device._state = self._parse_device_state(response_dict['response_str'])
@@ -219,7 +219,7 @@ class SavantLight(LightEntity):
     #         #亮度回复   AC E6 00 11 02 01 00 04 64 00 00 11（DALI01亮度标识符） CA
     #         #色温回复   AC E6 00 11 02 02 00 04 41 00 00 12（DALI01色温标识符） CA
     #         if len(response) >= 12:
-    #             device_value = response[8]       #数据    
+    #             device_value = response[8]       #数据
     #             device_type = response[11]  #类型    0X11为DALI01亮度     0X12为DALI01色温
 
     #             if device_type == 'DALI-01':

@@ -22,22 +22,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.data[DOMAIN] = {}
 
     # 保存配置信息
-    tcp_manager = TCPConnectionManager(entry.data.get("host"), entry.data.get("port"), None)
+    tcp_manager = TCPConnectionManager(entry.data.get("host"), entry.data.get("port"))
     tcp_manager.set_hass(hass)
     await tcp_manager.connect()
-    
+
     hass.data[DOMAIN][entry.entry_id] = {
         "host": entry.data.get("host"),
         "port": entry.data.get("port"),
         "tcp_manager": tcp_manager,
-        "devices": entry.data.get("devices", []), 
+        "devices": entry.data.get("devices", []),
     }
-        
+
     @callback
     def handle_ha_started(event):
         devices = hass.data[DOMAIN][entry.entry_id].get("devices")
         hass.async_create_task(tcp_manager.update_all_device_state(devices))
-    
+
     hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, handle_ha_started)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
@@ -49,7 +49,7 @@ async def async_update_config_entry(hass: HomeAssistant, entry_id: str, new_data
         # 合并新数据和现有数据
         updated_data = {**entry.data, **new_data}
         hass.config_entries.async_update_entry(entry, data=updated_data)
-        
+
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
