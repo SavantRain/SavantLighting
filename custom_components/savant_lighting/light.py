@@ -60,7 +60,7 @@ class SavantLight(LightEntity):
             self._attr_max_color_temp_kelvin = int(1000000 / 152)  # converting min mireds to kelvin
             self._color_mode = ColorMode.HS
             self._hs_color = (0, 0)
-            self._supported_color_modes = {ColorMode.HS, ColorMode.COLOR_TEMP, ColorMode.BRIGHTNESS}
+            self._supported_color_modes = {ColorMode.COLOR_TEMP, ColorMode.HS }
         elif self._sub_device_type in ("DALI-01", "DALI-02"):
             self._color_temp_mireds = 370
             self._min_mireds = 152
@@ -68,7 +68,7 @@ class SavantLight(LightEntity):
             self._color_temp_kelvin = int(1000000 / 370)  # converting mireds to kelvin
             self._attr_min_color_temp_kelvin = int(1000000 / 667)  # converting max mireds to kelvin
             self._attr_max_color_temp_kelvin = int(1000000 / 152)  # converting min mireds to kelvin
-            self._supported_color_modes = {ColorMode.COLOR_TEMP, ColorMode.BRIGHTNESS}
+            self._supported_color_modes = {ColorMode.COLOR_TEMP}
         elif self._sub_device_type in ("single", "0603D"):
             self._supported_color_modes = {ColorMode.BRIGHTNESS}
 
