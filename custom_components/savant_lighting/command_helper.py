@@ -1,5 +1,3 @@
-from tkinter import OFF
-
 from homeassistant.components.climate.const import HVACMode
 
 
