@@ -63,17 +63,17 @@ class SavantFreshAirFan(FanEntity):
     def preset_modes(self):
         """Return a list of supported preset modes."""
         return SUPPORTED_PRESET_MODES
-    
-    @property
-    def preset_mode(self):
-        """Return the current preset mode."""
-        return self._preset_mode
-    
+
+    # @property
+    # def preset_mode(self):
+    #     """Return the current preset mode."""
+    #     return self._preset_mode
+
     @property
     def supported_features(self):
         """Return the list of supported features."""
         return FanEntityFeature.TURN_ON | FanEntityFeature.TURN_OFF | FanEntityFeature.PRESET_MODE
-    
+
     @property
     def device_info(self):
         """Return device information to link this entity with the device registry."""
@@ -84,7 +84,7 @@ class SavantFreshAirFan(FanEntity):
             "model": "Fresh Air Model",
         }
 
-    async def async_turn_on(self, **kwargs):
+    async def async_turn_on(self, percentage=None, preset_mode=None, **kwargs):
         """Turn the fan on."""
         self._state = True
         self._preset_mode = 'auto'
@@ -132,7 +132,7 @@ class SavantFreshAirFan(FanEntity):
                 command_list.append(f"{loop_hex_value * 9 - 280:02X}000400000000CA")
         elif action == "off":
             command_list.append(f"{loop_hex_value * 9 - 281:02X}000400000000CA")
-        
+
         host_bytes = bytes.fromhex(host_hex)
         module_bytes = bytes.fromhex(module_hex)
         return [host_bytes + module_bytes + bytes.fromhex(cmd) for cmd in command_list]
@@ -156,4 +156,3 @@ class SavantFreshAirFan(FanEntity):
         device.async_write_ha_state()
         print(device._preset_mode)
 
-        
