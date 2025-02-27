@@ -46,7 +46,7 @@ class TCPConnectionManager:
     async def send_command(self, data):
         """通过TCP发送命令"""
         self.command_no = self.command_no + 1
-        print(f"发送第{self.command_no}个命令:{str(data).replace('\\x', '')}")
+        _LOGGER.debug(f"发送第{self.command_no}个命令:{str(data).replace('\\x', '')}")
         if not await self.check_connection():
             _LOGGER.warning("连接未建立，无法发送命令")
             return None, False
@@ -65,7 +65,7 @@ class TCPConnectionManager:
         """通过TCP发送命令"""
         for data in data_list:
             self.command_no = self.command_no + 1
-            print(f"发送第{self.command_no}个命令:{str(data).replace('\\x', '')}")
+            _LOGGER.debug(f"发送第{self.command_no}个命令:{str(data).replace('\\x', '')}")
             try:
                 self.writer.write(data)
                 await self.writer.drain()
@@ -85,16 +85,13 @@ class TCPConnectionManager:
                     response_str = bytes.fromhex(response.hex().strip())
 
                     if len(response_str)> 13:
-                    # if response_str.__len__ > 12:
-                    #     _LOGGER.error(f"响应数据长度不正确: {response_str}")
                         response_dict_array = self._parse_response_array(response_str)
                         for response_dict in response_dict_array:
                             if response_dict['device_type'] in self._callbacks and response_dict['device']:
                                 self._callbacks[response_dict['device_type']](response_dict)
                             else:
-                                _LOGGER.warning(f"未识别的设备类型: {response_dict['device_type']}")
+                                _LOGGER.warning(f"响应处理失败: {response_dict['unique_id']} {response_dict['device']} {response_dict['device_type']}")
                         continue
-
 
                     response_dict = self._parse_response(response_str)
                     if response_dict['device_type'] in self._callbacks and response_dict['device']:
@@ -199,7 +196,7 @@ class TCPConnectionManager:
         # self._callbacks.append(callback)
 
     def _parse_response(self, response_str):
-        print(response_str)
+        _LOGGER.debug(f"接收响应：{str(response_str).replace('\\x', '')}")
         hvac_off = [0x01, 0x0A, 0x13, 0x1C, 0x25, 0x2E, 0x37, 0x40, 0x49, 0x52, 0x5B, 0x64, 0x6D, 0x76, 0x7F, 0x88]
         hvac_mode = [0x02, 0x0B, 0x14, 0x1D, 0x26, 0x2F, 0x38, 0x41, 0x4A, 0x53, 0x5C, 0x65, 0x6E, 0x77, 0x80, 0x89]
         hvac_fan = [0x03, 0x0C, 0x15, 0x1E, 0x27, 0x30, 0x39, 0x42, 0x4B, 0x54, 0x5D, 0x66, 0x6F, 0x78, 0x81, 0x8A]
@@ -321,7 +318,7 @@ class TCPConnectionManager:
         return response_dict
 
     def _parse_response_array(self, response_str):
-        print(response_str)
+        _LOGGER.debug(f"接收响应：{str(response_str).replace('\\x', '')}")
         response_dict_array = []
         module_address = response_str[4]
         response_start = response_str[5]
@@ -459,51 +456,45 @@ class TCPConnectionManager:
         processed_types = ["light","switch","climate"]
         queryed_device = []
         for device in devices:
-
             device_type = device.get("type")
             sub_device_type = device.get("sub_device_type")
             host = device.get("host")
             module_address = device.get('module_address')
             loop_address = device.get('loop_address')
+
+            if device_type not in processed_types:
+                continue
             if module_address in queryed_device:
                 continue
-
             queryed_device.append(module_address)
-            if device_type in processed_types:
-                self.host_hex = f"AC{int(host.split('.')[-1]):02X}00B0"
-                self.module_hex = f"{int(module_address):02X}"
-                self.loop_hex = f"{int(loop_address):02X}"
-                self.host_bytes = bytes.fromhex(self.host_hex)
-                self.module_bytes = bytes.fromhex(self.module_hex)
-                self.loop_bytes = bytes.fromhex(self.loop_hex)
-                command_list1 = []
-                if device_type == "light" and sub_device_type == "DALI-02":
-                    command_list1 = [
-                        f"{self.module_hex}01000110CA",
-                        f"{self.module_hex}11000110CA",
-                        f"{self.module_hex}21000110CA",
-                        f"{self.module_hex}31000110CA"
-                    ]
-                    for cmd in command_list1:
-                        command_bytes = bytes.fromhex(cmd)
-                        command_list.append(self.host_bytes + command_bytes)
-                elif device_type == "light" and sub_device_type == "0603D":
-                    command_hex = f'{self.module_hex}01000106CA'
-                    command_bytes = bytes.fromhex(command_hex)
-                    command_list.append(self.host_bytes + command_bytes)
-                elif device_type == "switch":
-                    command_hex = f'{self.module_hex}01000108CA'
-                    command_bytes = bytes.fromhex(command_hex)
-                    command_list.append(self.host_bytes + command_bytes)
-                elif device_type == "climate":
-                    command_hex = f'{self.module_hex}01000109CA'
-                    command_bytes = bytes.fromhex(command_hex)
-                    command_list.append(self.host_bytes + command_bytes)
 
-                # if command_hex:
-
-                #     command = self.host_bytes + command_bytes
-                #     command_list.append(command)
+            self.host_hex = f"AC{int(host.split('.')[-1]):02X}00B0"
+            self.module_hex = f"{int(module_address):02X}"
+            self.loop_hex = f"{int(loop_address):02X}"
+            self.host_bytes = bytes.fromhex(self.host_hex)
+            self.module_bytes = bytes.fromhex(self.module_hex)
+            self.loop_bytes = bytes.fromhex(self.loop_hex)
+            if device_type == "light" and sub_device_type == "DALI-02":
+                for cmd in [
+                    f"{self.module_hex}01000110CA",
+                    f"{self.module_hex}11000110CA",
+                    f"{self.module_hex}21000110CA",
+                    f"{self.module_hex}31000110CA"
+                ]:
+                    command_bytes = bytes.fromhex(cmd)
+                    command_list.append(self.host_bytes + command_bytes)
+            elif device_type == "light" and sub_device_type == "0603D":
+                command_hex = f'{self.module_hex}01000106CA'
+                command_bytes = bytes.fromhex(command_hex)
+                command_list.append(self.host_bytes + command_bytes)
+            elif device_type == "switch":
+                command_hex = f'{self.module_hex}01000108CA'
+                command_bytes = bytes.fromhex(command_hex)
+                command_list.append(self.host_bytes + command_bytes)
+            elif device_type == "climate":
+                command_hex = f'{self.module_hex}01000109CA'
+                command_bytes = bytes.fromhex(command_hex)
+                command_list.append(self.host_bytes + command_bytes)
 
         await self.send_command_list(command_list)
-        print("更新所有设备状态")
+        _LOGGER.debug("已查询所有设备状态")

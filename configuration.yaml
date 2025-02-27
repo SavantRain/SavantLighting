@@ -1,1 +1,6 @@
 debugpy:
+
+logger:
+  default: warning  # 默认日志级别为 warning
+  logs:
+    custom_components.savant_lighting: debug  # 将你的自定义组件日志级别设置为 debug

@@ -4,6 +4,9 @@ from homeassistant.core import callback
 from homeassistant.helpers import device_registry as dr, entity_registry as er, selector
 from .const import DOMAIN
 from homeassistant.components.light import ColorMode
+import logging
+
+_LOGGER = logging.getLogger(__name__)
 
 class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
     """Handle the options flow for Savant Lighting."""
@@ -387,15 +390,13 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
 
     async def _delete_device(self, device_param):
         """Delete a device and its entities from the config entry and registries."""
-        # 获取当前配置条目
         entry = self.hass.config_entries.async_get_entry(self.config_entry.entry_id)
         if not entry:
             raise ValueError("Configuration entry not found")
 
-        # 获取设备列表
         devices = entry.data.get("devices", [])
+        _LOGGER.debug(f"Current devices in config entry: {devices}")
 
-        # 找到要删除的设备
         device_to_delete = None
         for device in devices:
             if f"{device['name']}|{device['module_address']}|{device['loop_address']}|{device['type']}" == device_param:
@@ -403,30 +404,42 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
                 break
 
         if not device_to_delete:
+            _LOGGER.warning(f"Device with param {device_param} not found")
             return
 
-        # 从设备注册表中获取设备
         device_registry = dr.async_get(self.hass)
         entity_registry = er.async_get(self.hass)
-
-        # 删除设备及其关联的实体
         device_id = None
+
         for device_entry in device_registry.devices.values():
             if (DOMAIN, f"{device_to_delete['module_address']}_{device_to_delete['loop_address']}_{device_to_delete['type']}") in device_entry.identifiers:
                 device_id = device_entry.id
-                # 删除实体
-                for entity_entry in entity_registry.entities.values():
-                    if entity_entry.device_id == device_id:
-                        entity_registry.async_remove(entity_entry.entity_id)
-                        break
-                # 删除设备
-                device_registry.async_remove_device(device_id)
+                _LOGGER.debug(f"Found matching device: {device_entry}")
                 break
+
+        if device_id:
+            # 删除关联的实体
+            entities_to_remove = []
+            for entity_entry in entity_registry.entities.values():
+                if entity_entry.device_id == device_id:
+                    _LOGGER.debug(f"Scheduling entity for removal: {entity_entry.entity_id}")
+                    entities_to_remove.append(entity_entry.entity_id)
+
+            for entity_id in entities_to_remove:
+                _LOGGER.debug(f"Removing entity: {entity_id}")
+                entity_registry.async_remove(entity_id)
+
+            # 删除设备
+            _LOGGER.debug(f"Removing device with ID: {device_id}")
+            device_registry.async_remove_device(device_id)
+        else:
+            _LOGGER.warning("No matching device found for deletion")
 
         # 更新配置条目中的设备列表（删除条目）
         updated_devices = [device for device in devices if f"{device['name']}|{device['module_address']}|{device['loop_address']}|{device['type']}" != device_param]
         updated_data = {**entry.data, "devices": updated_devices}
         self.hass.config_entries.async_update_entry(entry, data=updated_data)
+        await self.hass.config_entries.async_reload(entry.entry_id)
 
     def _get_devices_of_type(self, device_type):
         """Retrieve devices of a specific type from the config entry."""
