@@ -68,9 +68,6 @@ class SavantVoltageSensor(SensorEntity):
         """Return device information to link this entity with the device registry."""
         return {
             "identifiers": {(DOMAIN, f"{self._module_address}_{self._loop_address}_switch_with_energy")},
-            "name": self._attr_name,
-            "manufacturer": "Savant",
-            "model": "Switch with Energy Monitor Model",
         }
 
     def update_state(self, response_dict):
@@ -113,9 +110,6 @@ class SavantCurrentSensor(SensorEntity):
         """Return device information to link this entity with the device registry."""
         return {
             "identifiers": {(DOMAIN, f"{self._module_address}_{self._loop_address}_switch_with_energy")},
-            "name": self._attr_name,
-            "manufacturer": "Savant",
-            "model": "Switch with Energy Monitor Model",
         }
 
     def update_state(self, response_dict):
@@ -158,9 +152,6 @@ class SavantPowerSensor(SensorEntity):
         """Return device information to link this entity with the device registry."""
         return {
             "identifiers": {(DOMAIN, f"{self._module_address}_{self._loop_address}_switch_with_energy")},
-            "name": self._attr_name,
-            "manufacturer": "Savant",
-            "model": "Switch with Energy Monitor Model",
         }
 
     def update_state(self, response_dict):
