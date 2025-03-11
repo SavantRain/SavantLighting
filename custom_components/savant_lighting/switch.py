@@ -8,6 +8,7 @@ from .const import DOMAIN
 from .command_helper import SwitchCommand
 from .switch_8_button import SavantSwitch8Button
 from .switch_scene import SavantSwitchScene
+from .switch_with_energy import SavantEnergySwitch
 
 _LOGGER = logging.getLogger(__name__)
 SCAN_INTERVAL = timedelta(seconds=60)
@@ -27,7 +28,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         )
         for device in devices if device["type"] == "switch"
     ]
-    
+
     eight_buttons = []
     for device in devices:
         if device["type"] == "8button":  # 检查设备类型是否为 8 键开关
@@ -56,8 +57,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         )
         for device in devices if device["type"] == "scene_switch"
     ]
-    
-    async_add_entities(switchs + eight_buttons + scene_switchs, update_before_add=True)
+
+    energy_switches = [
+        SavantEnergySwitch(
+            name=device["name"],
+            module_address=device["module_address"],
+            loop_address=device["loop_address"],
+            host=device["host"],
+            port=device["port"],
+            tcp_manager=config["tcp_manager"]
+        )
+        for device in devices if device["type"] == "switch_with_energy"
+    ]
+
+    async_add_entities(switchs + eight_buttons + scene_switchs + energy_switches, update_before_add=True)
 
 class SavantSwitch(SwitchEntity):
     """Representation of a Savant Switch."""
@@ -75,7 +88,7 @@ class SavantSwitch(SwitchEntity):
         self.tcp_manager = tcp_manager
         self.tcp_manager.register_callback("switch", self.update_state)
         self.command = SwitchCommand(host,module_address,loop_address)
-        
+
     async def async_added_to_hass(self):
         """Callback when entity is added to hass."""
         # 延迟更新设备状态，以避免阻塞 setup
@@ -84,12 +97,12 @@ class SavantSwitch(SwitchEntity):
         # query_command = self._generate_query_command()
         # await self.tcp_manager.send_command(query_command)
 
-        
+
     @property
     def unique_id(self):
         """Return a unique ID for this light."""
         return f"{self._module_address}_{self._loop_address}_switch"
-    
+
     @property
     def is_on(self):
         """Return true if the light is on."""
@@ -104,7 +117,7 @@ class SavantSwitch(SwitchEntity):
             "manufacturer": "Savant",
             "model": "Switch Model",
         }
-    
+
     @property
     def available(self):
         """Return True if the device is available (online)."""
@@ -118,7 +131,7 @@ class SavantSwitch(SwitchEntity):
     async def async_turn_off(self, **kwargs):
         self._state = True
         await self.tcp_manager.send_command(self.command.turnonoff("off"))
-    
+
     async def async_update(self):
         self._state = True
         # await self.tcp_manager.send_command(self.command.query_state())

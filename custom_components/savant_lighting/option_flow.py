@@ -53,6 +53,7 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
             step_id="init",
             menu_options={
                 "switch_menu": "管理继电器",
+                "switch_with_energy_menu": "管理四路继电器",
                 "light_006_menu": "管理六路调光",
                 "light_menu": "管理【单色温】灯光",
                 "light_dali_001_menu": "管理【双色温DALI-01】灯光",
@@ -107,6 +108,9 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
 
     async def async_step_scene_switch_menu(self, user_input=None):
         return await self.async_step_device_menu(device_type="scene_switch", user_input=user_input)
+
+    async def async_step_switch_with_energy_menu(self, user_input=None):
+        return await self.async_step_device_menu(device_type="switch_with_energy", user_input=user_input)
 
     async def async_step_device_menu(self, user_input=None, device_type=None, sub_device_type=None):
         """Second level menu: Add, configure, or delete devices."""
@@ -346,7 +350,7 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
         """Register device in Home Assistant's device registry."""
         device_registry = dr.async_get(self.hass)
         entry = self.hass.config_entries.async_get_entry(self.config_entry.entry_id)
-        if not isinstance(device_type, str) or device_type not in ["light", "switch","climate","floor_heating","fresh_air","8button","curtain","person_sensor","scene_switch"]:
+        if not isinstance(device_type, str) or device_type not in ["light", "switch","climate","floor_heating","fresh_air","8button","curtain","person_sensor","scene_switch","switch_with_energy"]:
             raise ValueError(f"Invalid device type provided: {device_type}")
         model_name = device_type.capitalize()
         device_registry.async_get_or_create(

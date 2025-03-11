@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from homeassistant.helpers.entity_registry import async_get as async_get_entity_registry
+from custom_components.savant_lighting import sensor
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -140,7 +141,6 @@ class TCPConnectionManager:
             try:
                 # 发送 FF 字节
                 ff_bytes = b'\xFF'
-                _LOGGER.info("发送心跳包: FF")
                 await self.send_command(ff_bytes)
                 await asyncio.sleep(60)  # 每 1 分钟发送一次
             except Exception as e:
@@ -167,7 +167,6 @@ class TCPConnectionManager:
             return None
         entity_id = entity_entry.entity_id
 
-
         if device_type in self.hass.data:
             device = self.hass.data[device_type].get_entity(entity_id)
         elif device_type == 'floor_heating':
@@ -182,6 +181,9 @@ class TCPConnectionManager:
             device = self.hass.data['binary_sensor'].get_entity(entity_id)
         elif device_type == '8button':
             device = self.hass.data['switch'].get_entity(entity_id)
+        elif device_type == 'switch_with_energy':
+            device = self.hass.data['switch'].get_entity(entity_id)
+
         else:
             _LOGGER.error(f"未找到 entity_id 为 {entity_id} 的设备实例")
             return None
@@ -310,10 +312,16 @@ class TCPConnectionManager:
             response_dict["loop_address"] = response_dict["data3"]
             response_dict["hvac_type"] = "hvac_08"
 
+        # todo: switch_with_energy 类型判断
+        elif response_dict["device_type"] == "switch_with_energy":
+            response_dict["device_type"] = "switch_with_energy"
+            unique_id = f"{response_dict["module_address"]}_{response_dict["loop_address"]}_switch_with_energy"
+
         if response_dict["device_type"] == "8button":
             unique_id = f"{response_dict["module_address"]}_{response_dict["loop_address"]}_{response_dict["button_index"]}_{response_dict["device_type"]}"
         else:
             unique_id = f"{response_dict["module_address"]}_{response_dict["loop_address"]}_{response_dict["device_type"]}"
+
         response_dict['device'] = self.get_device_by_unique_id(response_dict["device_type"],unique_id)
         return response_dict
 
