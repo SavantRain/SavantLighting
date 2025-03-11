@@ -88,5 +88,9 @@ class SavantEnergySwitch(SwitchEntity):
         sensor._state = 1.0
         sensor.async_write_ha_state()
 
+        sensor = self.get_sensor_entity(f"{self._module_address}_{self._loop_address}_switch_with_energy_energy_sensor")
+        sensor._state = 1.0
+        sensor.async_write_ha_state()
+
     def _parse_response(self, response_str):
         pass

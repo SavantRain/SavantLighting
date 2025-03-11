@@ -28,9 +28,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             entities.append(SavantVoltageSensor(name, module_address, loop_address, tcp_manager))
             entities.append(SavantCurrentSensor(name, module_address, loop_address, tcp_manager))
             entities.append(SavantPowerSensor(name, module_address, loop_address, tcp_manager))
+            entities.append(SavantEnergySensor(name, module_address, loop_address, tcp_manager))
 
     async_add_entities(entities, update_before_add=True)
-
 
 class SavantVoltageSensor(SensorEntity):
     """Representation of a voltage sensor."""
@@ -146,6 +146,48 @@ class SavantPowerSensor(SensorEntity):
     @property
     def icon(self):
         return "mdi:power-plug"
+
+    @property
+    def device_info(self):
+        """Return device information to link this entity with the device registry."""
+        return {
+            "identifiers": {(DOMAIN, f"{self._module_address}_{self._loop_address}_switch_with_energy")},
+        }
+
+    def update_state(self, response_dict):
+        self._state = response_dict.get("power", 0.0)
+        self.async_write_ha_state()
+
+class SavantEnergySensor(SensorEntity):
+    """Representation of a power sensor."""
+
+    def __init__(self, name, module_address, loop_address, tcp_manager):
+        """Initialize the power sensor."""
+        self._attr_name = f"{name} KW·h"
+        self._module_address = module_address
+        self._loop_address = loop_address
+        self._state = 0.0
+        self.tcp_manager = tcp_manager
+        self.tcp_manager.register_callback("switch_with_energy_energy_sensor", self.update_state)
+
+    @property
+    def unique_id(self):
+        """Return a unique ID for this energy sensor."""
+        return f"{self._module_address}_{self._loop_address}_switch_with_energy_energy_sensor"
+
+    @property
+    def state(self):
+        """Return the energy."""
+        return self._state
+
+    @property
+    def unit_of_measurement(self):
+        """Return the unit of measurement."""
+        return "KW·h"
+
+    @property
+    def icon(self):
+        return "mdi:power-plug-battery"
 
     @property
     def device_info(self):
