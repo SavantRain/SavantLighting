@@ -138,17 +138,6 @@ class TCPConnectionManager:
             return False
         return True
 
-    # async def _send_keep_alive(self):
-    #     """定时发送 FF 字节保持心跳"""
-    #     while self._is_connected:
-    #         try:
-    #             # 发送 FF 字节
-    #             ff_bytes = b'\xFF'
-    #             await self.send_command(ff_bytes)
-    #             await asyncio.sleep(60)  # 每 1 分钟发送一次
-    #         except Exception as e:
-    #             _LOGGER.error(f"发送心跳包失败: {e}")
-    #             break
     async def _send_keep_alive(self):
         """定时发送 FF 字节保持心跳"""
         while self._is_connected:
@@ -191,7 +180,7 @@ class TCPConnectionManager:
                 entity_entry = entry
                 break
         if entity_entry is None:
-            _LOGGER.error(f"未找到 unique_id 为 {unique_id} 的设备")
+            _LOGGER.warning(f"未找到 unique_id 为 {unique_id} 的设备")
             return None
         entity_id = entity_entry.entity_id
 
@@ -215,7 +204,7 @@ class TCPConnectionManager:
             device = self.hass.data['switch'].get_entity(entity_id)
 
         if device is None:
-            _LOGGER.error(f"未找到 entity_id 为 {entity_id} 的设备实例")
+            _LOGGER.warning(f"未找到 entity_id 为 {entity_id} 的设备实例")
             return None
         return device
 
