@@ -488,6 +488,7 @@ class TCPConnectionManager:
         elif response_length == 0x50:
             response_array = [response_str[i:i+4] for i in range(8, len(response_str), 4)]
             response_start = response_str[5]
+            device_dict = {}
             for idx,response in enumerate(response_array):
                 if idx == 20:
                     break
@@ -509,22 +510,31 @@ class TCPConnectionManager:
                 if idx < 4 and idx >=0:
                     response_dict["loop_address"] = idx + response_start
                     response_dict["switch_type"] = "num1"
-                elif idx < 8 and idx >=4:
+                    unique_id = f"{response_dict["module_address"]}_{response_dict["loop_address"]}_{response_dict["device_type"]}"
+                    response_dict['unique_id'] = unique_id
+                    response_dict['device'] = self.get_device_by_unique_id(response_dict["device_type"],unique_id)
+                    device_dict[response_dict["loop_address"]] = response_dict['device']
+
+                if idx < 8 and idx >=4 and device_dict[idx - 3]:
                     response_dict["loop_address"] = idx - 3
                     response_dict["switch_type"] = "num2"
-                elif idx < 12 and idx >=8:
+                    response_dict['device'] = device_dict[idx - 3]
+
+                elif idx < 12 and idx >=8 and device_dict[idx - 7]:
                     response_dict["loop_address"] = idx - 7
                     response_dict["switch_type"] = "num3"
-                elif idx < 16 and idx >=12:
+                    response_dict['device'] = device_dict[idx - 7]
+                elif idx < 16 and idx >=12 and device_dict[idx - 11]:
+
                     response_dict["loop_address"] = idx - 11
                     response_dict["switch_type"] = "num4"
-                elif idx < 20 and idx >=16:
+                    response_dict['device'] = device_dict[idx - 11]
+
+                elif idx < 20 and idx >=16 and device_dict[idx - 15]:
                     response_dict["loop_address"] = idx - 15
                     response_dict["switch_type"] = "num5"
+                    response_dict['device'] = device_dict[idx - 15]
 
-                unique_id = f"{response_dict["module_address"]}_{response_dict["loop_address"]}_{response_dict["device_type"]}"
-                response_dict['unique_id'] = unique_id
-                response_dict['device'] = self.get_device_by_unique_id(response_dict["device_type"],unique_id)
                 if response_dict['device']:
                     response_dict_array.append(response_dict)
 
