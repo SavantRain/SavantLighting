@@ -66,14 +66,14 @@ class SavantEnergySwitch(SwitchEntity):
         entity_id = entity_entry.entity_id
         sensor = self.hass.data['sensor'].get_entity(entity_id)
         return sensor
-    
+
 
     async def async_update(self):
         self._state = True
-        
+
         # await asyncio.sleep(5)
         # await self.tcp_manager.send_command(self._generate_query_command())
-    
+
     def _generate_query_command(self) -> bytes:
         """Generate the query command to get the device state."""
         host_hex = f"AC{int(self._host.split('.')[-1]):02X}00B0"
@@ -82,7 +82,7 @@ class SavantEnergySwitch(SwitchEntity):
         return base_command + b'\x01\x00\x01\x14\xCA'
 
     def update_state(self, response_dict):
-        _LOGGER.debug('Switch state update received: %s', response_dict)
+        # _LOGGER.debug('Switch state update received: %s', response_dict)
         device = response_dict['device']
         if response_dict["switch_type"] == "num1":
             if response_dict["data1"] == 0x00:
@@ -93,7 +93,7 @@ class SavantEnergySwitch(SwitchEntity):
         elif response_dict["switch_type"] == "num0":
             if response_dict["data1"] == 0x00:
                 device._state = False
-            else:  
+            else:
                 device._state = True
             device.async_write_ha_state()
         elif response_dict["switch_type"] == "num2":
@@ -112,7 +112,7 @@ class SavantEnergySwitch(SwitchEntity):
             sensor = self.get_sensor_entity(f"{device._module_address}_{device._loop_address}_switch_with_energy_energy_sensor")
             hex_part1 = format(response_dict["data2"], "02x")
             hex_part2 = format(response_dict["data1"], "02x")
-            combined_hex = hex_part1 + hex_part2 
+            combined_hex = hex_part1 + hex_part2
             decimal_value = int(combined_hex, 16) / 100
             sensor._state = decimal_value
             sensor.async_write_ha_state()

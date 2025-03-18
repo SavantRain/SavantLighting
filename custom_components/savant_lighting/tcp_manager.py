@@ -91,9 +91,11 @@ class TCPConnectionManager:
                         for response_dict in response_dict_array:
                             if response_dict['device_type'] in self._callbacks and response_dict['device']:
                                 self._callbacks[response_dict['device_type']](response_dict)
+                            elif not response_dict['device']:
+                                _LOGGER.warning(f"未识别的设备类型: {response_dict['unique_id']} {response_dict['device_type']}")
                             else:
                                 _LOGGER.warning(f"响应处理失败: {response_dict['unique_id']} {response_dict['device']} {response_dict['device_type']}")
-                        continue
+                    continue
 
                     response_dict = self._parse_response(response_str)
                     if response_dict['device_type'] in self._callbacks and response_dict['device']:
@@ -207,12 +209,9 @@ class TCPConnectionManager:
             device = self.hass.data['binary_sensor'].get_entity(entity_id)
         elif device_type == '8button':
             device = self.hass.data['switch'].get_entity(entity_id)
-        elif device_type == 'switch_with_energy' and 'switch' in self.hass.data:
+        elif device_type == 'switch_with_energy':
             device = self.hass.data['switch'].get_entity(entity_id)
 
-        else:
-            _LOGGER.error(f"未找到 entity_id 为 {entity_id} 的设备实例")
-            return None
         if device is None:
             _LOGGER.error(f"未找到 entity_id 为 {entity_id} 的设备实例")
             return None
@@ -498,7 +497,7 @@ class TCPConnectionManager:
                     "data2": response[1],
                     "data3": response[2],
                     "data4": response[3],
-                    "device_type":"",
+                    "device_type":"switch_with_energy",
                     "sub_device_type":"",
                     "switch_type": "",
                     "module_address": module_address,
@@ -508,29 +507,26 @@ class TCPConnectionManager:
                     "device":None
                 }
                 if idx < 4 and idx >=0:
-                    response_dict["device_type"] = "switch_with_energy"
                     response_dict["loop_address"] = idx + response_start
                     response_dict["switch_type"] = "num1"
                 elif idx < 8 and idx >=4:
-                    response_dict["device_type"] = "switch_with_energy"
-                    response_dict["loop_address"] = idx - 3 
+                    response_dict["loop_address"] = idx - 3
                     response_dict["switch_type"] = "num2"
                 elif idx < 12 and idx >=8:
-                    response_dict["device_type"] = "switch_with_energy"
                     response_dict["loop_address"] = idx - 7
                     response_dict["switch_type"] = "num3"
                 elif idx < 16 and idx >=12:
-                    response_dict["device_type"] = "switch_with_energy"
                     response_dict["loop_address"] = idx - 11
                     response_dict["switch_type"] = "num4"
                 elif idx < 20 and idx >=16:
-                    response_dict["device_type"] = "switch_with_energy"
-                    response_dict["loop_address"] = idx - 15 
+                    response_dict["loop_address"] = idx - 15
                     response_dict["switch_type"] = "num5"
-                
+
                 unique_id = f"{response_dict["module_address"]}_{response_dict["loop_address"]}_{response_dict["device_type"]}"
+                response_dict['unique_id'] = unique_id
                 response_dict['device'] = self.get_device_by_unique_id(response_dict["device_type"],unique_id)
-                response_dict_array.append(response_dict)
+                if response_dict['device']:
+                    response_dict_array.append(response_dict)
 
         return response_dict_array
 
@@ -585,11 +581,10 @@ class TCPConnectionManager:
 
         await self.send_command_list(command_list)
         _LOGGER.debug("已查询所有设备状态")
-    
+
     async def update_all_device_state_switch(self, devices):
         command_list = []
         processed_types = ["switch_with_energy"]
-        queryed_device = []
         for device in devices:
             device_type = device.get("type")
             sub_device_type = device.get("sub_device_type")
@@ -599,20 +594,17 @@ class TCPConnectionManager:
 
             if device_type not in processed_types:
                 continue
-            if module_address in queryed_device:
-                continue
-            queryed_device.append(module_address)
 
-            self.host_hex = f"AC{int(host.split('.')[-1]):02X}00B0"
-            self.module_hex = f"{int(module_address):02X}"
-            self.loop_hex = f"{int(loop_address):02X}"
-            self.host_bytes = bytes.fromhex(self.host_hex)
-            self.module_bytes = bytes.fromhex(self.module_hex)
-            self.loop_bytes = bytes.fromhex(self.loop_hex)
-            
+            host_hex = f"AC{int(host.split('.')[-1]):02X}00B0"
+            module_hex = f"{int(module_address):02X}"
+            loop_hex = f"{int(loop_address):02X}"
+            host_bytes = bytes.fromhex(host_hex)
+            module_bytes = bytes.fromhex(module_hex)
+            loop_bytes = bytes.fromhex(loop_hex)
+
             if device_type == "switch_with_energy":
-                command_hex = f'{self.module_hex}01000114CA'
+                command_hex = f'{module_hex}01000114CA'
                 command_bytes = bytes.fromhex(command_hex)
-                command_list.append(self.host_bytes + command_bytes)
+                command_list.append(host_bytes + command_bytes)
 
         await self.send_command_list(command_list)
