@@ -151,7 +151,7 @@ class SavantLightingOptionsFlowHandler(config_entries.OptionsFlow):
                 user_input["loop_address"] = 'scene' + str(user_input['scene_number'])
 
             for exist_device in devices:
-                if self.device_type in ['fresh_air', 'floor_heating', 'climate']:
+                if self.device_type in ['fresh_air', 'floor_heating', 'climate', 'switch_with_energy','switch']:
                     if (exist_device["module_address"] == user_input["module_address"] \
                         and exist_device["loop_address"] == user_input["loop_address"]) \
                         and (exist_device["type"] == self.device_type):

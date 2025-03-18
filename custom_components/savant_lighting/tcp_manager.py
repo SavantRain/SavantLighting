@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from .const import DOMAIN
 from homeassistant.helpers.entity_registry import async_get as async_get_entity_registry
 from custom_components.savant_lighting import sensor
 
@@ -135,14 +136,37 @@ class TCPConnectionManager:
             return False
         return True
 
+    # async def _send_keep_alive(self):
+    #     """定时发送 FF 字节保持心跳"""
+    #     while self._is_connected:
+    #         try:
+    #             # 发送 FF 字节
+    #             ff_bytes = b'\xFF'
+    #             await self.send_command(ff_bytes)
+    #             await asyncio.sleep(60)  # 每 1 分钟发送一次
+    #         except Exception as e:
+    #             _LOGGER.error(f"发送心跳包失败: {e}")
+    #             break
     async def _send_keep_alive(self):
         """定时发送 FF 字节保持心跳"""
         while self._is_connected:
             try:
-                # 发送 FF 字节
-                ff_bytes = b'\xFF'
-                await self.send_command(ff_bytes)
-                await asyncio.sleep(60)  # 每 1 分钟发送一次
+                switch_with_energy_devices = []
+                # Iterate over all devices in the DOMAIN data
+                for key, data in self.hass.data[DOMAIN].items():
+                    devices = data.get("devices", [])
+                    for device in devices:
+                        if device["type"] == "switch_with_energy":
+                            switch_with_energy_devices.append(device)
+
+                if switch_with_energy_devices:
+                    _LOGGER.debug("存在 switch_with_energy 设备，执行状态查询")
+                    await self.update_all_device_state_switch(switch_with_energy_devices)
+                else:
+                    _LOGGER.debug("发送保持连接的心跳包")
+                    ff_bytes = b'\xFF'
+                    await self.send_command(ff_bytes)
+                await asyncio.sleep(60)
             except Exception as e:
                 _LOGGER.error(f"发送心跳包失败: {e}")
                 break
@@ -175,13 +199,15 @@ class TCPConnectionManager:
             device = self.hass.data['fan'].get_entity(entity_id)
         elif device_type == 'curtain':
             device = self.hass.data['cover'].get_entity(entity_id)
+        elif device_type == 'switch':
+            device = self.hass.data['switch'].get_entity(entity_id)
         elif device_type == 'scene_switch':
             device = self.hass.data['switch'].get_entity(entity_id)
         elif device_type == 'person_sensor':
             device = self.hass.data['binary_sensor'].get_entity(entity_id)
         elif device_type == '8button':
             device = self.hass.data['switch'].get_entity(entity_id)
-        elif device_type == 'switch_with_energy':
+        elif device_type == 'switch_with_energy' and 'switch' in self.hass.data:
             device = self.hass.data['switch'].get_entity(entity_id)
 
         else:
@@ -218,6 +244,7 @@ class TCPConnectionManager:
             "device_type":"",
             "sub_device_type":"",
             "hvac_type": "",
+            "switch_type":"",
             "module_address": response_str[4],
             "loop_address": response_str[5],
             "unique_id":"",
@@ -227,6 +254,8 @@ class TCPConnectionManager:
         }
         if response_dict["data2"] == 0x00 and response_dict["data3"] == 0x00 and response_dict["data4"] == 0x00:
             response_dict["device_type"] = "switch"
+            response_dict["switch_type"] = "num0"
+            response_dict["redirect_type"] = "switch_with_energy"
 
         elif response_dict["data2"] == 0x04 and response_dict["data3"] == 0x00 and response_dict["data4"] == 0x00 and response_dict["loop_address"] in shade_address:
             response_dict["loop_address"] = (response_dict["loop_address"] - 17) // 3
@@ -345,7 +374,7 @@ class TCPConnectionManager:
                     "data4": response[3],
                     "device_type":"switch",
                     "sub_device_type":"",
-                    "hvac_type": "",
+                    "switch_type": "num0",
                     "module_address": module_address,
                     "loop_address": idx +1,
                     "unique_id":"",
@@ -457,6 +486,52 @@ class TCPConnectionManager:
                 response_dict['device'] = self.get_device_by_unique_id(response_dict["device_type"],unique_id)
                 response_dict_array.append(response_dict)
 
+        elif response_length == 0x50:
+            response_array = [response_str[i:i+4] for i in range(8, len(response_str), 4)]
+            response_start = response_str[5]
+            for idx,response in enumerate(response_array):
+                if idx == 20:
+                    break
+                response_dict = {
+                    "response_str": response_str,
+                    "data1": response[0],
+                    "data2": response[1],
+                    "data3": response[2],
+                    "data4": response[3],
+                    "device_type":"",
+                    "sub_device_type":"",
+                    "switch_type": "",
+                    "module_address": module_address,
+                    "loop_address": "",
+                    "unique_id":"",
+                    "button_index":"",
+                    "device":None
+                }
+                if idx < 4 and idx >=0:
+                    response_dict["device_type"] = "switch_with_energy"
+                    response_dict["loop_address"] = idx + response_start
+                    response_dict["switch_type"] = "num1"
+                elif idx < 8 and idx >=4:
+                    response_dict["device_type"] = "switch_with_energy"
+                    response_dict["loop_address"] = idx - 3 
+                    response_dict["switch_type"] = "num2"
+                elif idx < 12 and idx >=8:
+                    response_dict["device_type"] = "switch_with_energy"
+                    response_dict["loop_address"] = idx - 7
+                    response_dict["switch_type"] = "num3"
+                elif idx < 16 and idx >=12:
+                    response_dict["device_type"] = "switch_with_energy"
+                    response_dict["loop_address"] = idx - 11
+                    response_dict["switch_type"] = "num4"
+                elif idx < 20 and idx >=16:
+                    response_dict["device_type"] = "switch_with_energy"
+                    response_dict["loop_address"] = idx - 15 
+                    response_dict["switch_type"] = "num5"
+                
+                unique_id = f"{response_dict["module_address"]}_{response_dict["loop_address"]}_{response_dict["device_type"]}"
+                response_dict['device'] = self.get_device_by_unique_id(response_dict["device_type"],unique_id)
+                response_dict_array.append(response_dict)
+
         return response_dict_array
 
     async def update_all_device_state(self, devices):
@@ -503,6 +578,41 @@ class TCPConnectionManager:
                 command_hex = f'{self.module_hex}01000109CA'
                 command_bytes = bytes.fromhex(command_hex)
                 command_list.append(self.host_bytes + command_bytes)
+            elif device_type == "switch_with_energy":
+                command_hex = f'{self.module_hex}01000114CA'
+                command_bytes = bytes.fromhex(command_hex)
+                command_list.append(self.host_bytes + command_bytes)
 
         await self.send_command_list(command_list)
         _LOGGER.debug("已查询所有设备状态")
+    
+    async def update_all_device_state_switch(self, devices):
+        command_list = []
+        processed_types = ["switch_with_energy"]
+        queryed_device = []
+        for device in devices:
+            device_type = device.get("type")
+            sub_device_type = device.get("sub_device_type")
+            host = device.get("host")
+            module_address = device.get('module_address')
+            loop_address = device.get('loop_address')
+
+            if device_type not in processed_types:
+                continue
+            if module_address in queryed_device:
+                continue
+            queryed_device.append(module_address)
+
+            self.host_hex = f"AC{int(host.split('.')[-1]):02X}00B0"
+            self.module_hex = f"{int(module_address):02X}"
+            self.loop_hex = f"{int(loop_address):02X}"
+            self.host_bytes = bytes.fromhex(self.host_hex)
+            self.module_bytes = bytes.fromhex(self.module_hex)
+            self.loop_bytes = bytes.fromhex(self.loop_hex)
+            
+            if device_type == "switch_with_energy":
+                command_hex = f'{self.module_hex}01000114CA'
+                command_bytes = bytes.fromhex(command_hex)
+                command_list.append(self.host_bytes + command_bytes)
+
+        await self.send_command_list(command_list)

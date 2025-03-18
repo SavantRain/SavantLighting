@@ -147,10 +147,10 @@ class SavantSwitch(SwitchEntity):
     def update_state(self, response_dict):
         print('继电器收到状态响应: ' + str(response_dict).replace('\\x', ''))
         device = response_dict['device']
-
-        if response_dict["data1"] == 0x00:
-            device._state = False
-        else:
-            device._state = True
+        if response_dict["switch_type"] == "num0":
+            if response_dict["data1"] == 0x00:
+                device._state = False
+            else:
+                device._state = True
 
         device.async_write_ha_state()
