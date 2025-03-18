@@ -156,6 +156,8 @@ class TCPConnectionManager:
                 switch_with_energy_devices = []
                 # Iterate over all devices in the DOMAIN data
                 for key, data in self.hass.data[DOMAIN].items():
+                    if 'devices' not in data:
+                        break
                     devices = data.get("devices", [])
                     for device in devices:
                         if device["type"] == "switch_with_energy":
