@@ -1,5 +1,6 @@
 import logging
 from datetime import timedelta
+import re
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.config_entries import ConfigEntry
@@ -84,37 +85,27 @@ class SavantEnergySwitch(SwitchEntity):
     def update_state(self, response_dict):
         # _LOGGER.debug('Switch state update received: %s', response_dict)
         device = response_dict['device']
-        if response_dict["switch_type"] == "num1":
-            if response_dict["data1"] == 0x00:
-                device._state = False
-            else:
-                device._state = True
-            device.async_write_ha_state()
-        elif response_dict["switch_type"] == "num0":
-            if response_dict["data1"] == 0x00:
-                device._state = False
-            else:
-                device._state = True
-            device.async_write_ha_state()
-        elif response_dict["switch_type"] == "num2":
+        device._state = response_dict["state"]
+        device.async_write_ha_state()
+
+        if response_dict['current_sensor'] is not None:
             sensor = self.get_sensor_entity(f"{device._module_address}_{device._loop_address}_switch_with_energy_current_sensor")
-            sensor._state = response_dict["data1"] / 1000
+            sensor._state = response_dict['current_sensor']
             sensor.async_write_ha_state()
-        elif response_dict["switch_type"] == "num3":
+
+        if response_dict['voltage_sensor'] is not None:
             sensor = self.get_sensor_entity(f"{device._module_address}_{device._loop_address}_switch_with_energy_voltage_sensor")
-            sensor._state = response_dict["data1"]
+            sensor._state = response_dict['voltage_sensor']
             sensor.async_write_ha_state()
-        elif response_dict["switch_type"] == "num4":
+
+        if response_dict['power_sensor'] is not None:
             sensor = self.get_sensor_entity(f"{device._module_address}_{device._loop_address}_switch_with_energy_power_sensor")
-            sensor._state = response_dict["data1"]
+            sensor._state = response_dict['power_sensor']
             sensor.async_write_ha_state()
-        elif response_dict["switch_type"] == "num5":
+
+        if response_dict['energy_sensor'] is not None:
             sensor = self.get_sensor_entity(f"{device._module_address}_{device._loop_address}_switch_with_energy_energy_sensor")
-            hex_part1 = format(response_dict["data2"], "02x")
-            hex_part2 = format(response_dict["data1"], "02x")
-            combined_hex = hex_part1 + hex_part2
-            decimal_value = int(combined_hex, 16) / 100
-            sensor._state = decimal_value
+            sensor._state = response_dict['energy_sensor']
             sensor.async_write_ha_state()
 
     def _parse_response(self, response_str):

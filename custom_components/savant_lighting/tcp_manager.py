@@ -2,7 +2,7 @@ import asyncio
 import logging
 from .const import DOMAIN
 from homeassistant.helpers.entity_registry import async_get as async_get_entity_registry
-from custom_components.savant_lighting import sensor
+from custom_components.savant_lighting import sensor, switch_with_energy
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -480,55 +480,65 @@ class TCPConnectionManager:
             response_array = [response_str[i:i+4] for i in range(8, len(response_str), 4)]
             response_start = response_str[5]
             device_dict = {}
+            devices_list = []
+
             for idx,response in enumerate(response_array):
                 if idx == 20:
                     break
-                response_dict = {
-                    "response_str": response_str,
-                    "data1": response[0],
-                    "data2": response[1],
-                    "data3": response[2],
-                    "data4": response[3],
-                    "device_type":"switch_with_energy",
-                    "sub_device_type":"",
-                    "switch_type": "",
-                    "module_address": module_address,
-                    "loop_address": "",
-                    "unique_id":"",
-                    "button_index":"",
-                    "device":None
-                }
                 if idx < 4 and idx >=0:
-                    response_dict["loop_address"] = idx + response_start
-                    response_dict["switch_type"] = "num1"
-                    unique_id = f"{response_dict["module_address"]}_{response_dict["loop_address"]}_{response_dict["device_type"]}"
-                    response_dict['unique_id'] = unique_id
-                    response_dict['device'] = self.get_device_by_unique_id(response_dict["device_type"],unique_id)
-                    device_dict[response_dict["loop_address"]] = response_dict['device']
+                    loop_address = idx + response_start
+                    device_dict = {
+                        "device_type":"switch_with_energy",
+                        "module_address": module_address,
+                        "loop_address": loop_address,
+                        "unique_id":"",
+                        "device":None,
+                        "state": False,
+                        "voltage_sensor":1.0,
+                        "current_sensor":1.0,
+                        "power_sensor":1.0,
+                        "energy_sensor":1.0
+                    }
+                    unique_id = f"{module_address}_{loop_address}_switch_with_energy"
+                    device_dict['unique_id'] = unique_id
+                    device_dict['device'] = self.get_device_by_unique_id("switch_with_energy",unique_id)
+                    if device_dict['device']:
+                        if response[0] == 0x00:
+                            device_dict['state'] = False
+                        else:
+                            device_dict['state'] = True
+                        devices_list.append(device_dict)
 
-                if idx < 8 and idx >=4 and device_dict[idx - 3]:
-                    response_dict["loop_address"] = idx - 3
-                    response_dict["switch_type"] = "num2"
-                    response_dict['device'] = device_dict[idx - 3]
 
-                elif idx < 12 and idx >=8 and device_dict[idx - 7]:
-                    response_dict["loop_address"] = idx - 7
-                    response_dict["switch_type"] = "num3"
-                    response_dict['device'] = device_dict[idx - 7]
-                elif idx < 16 and idx >=12 and device_dict[idx - 11]:
+                if idx < 8 and idx >=4 :
+                    loop_address = idx - 3
+                    device_dict = next((d for d in devices_list if d.get("loop_address") == loop_address), None)
+                    if device_dict:
+                        device_dict['current_sensor'] = response[0] / 1000
 
-                    response_dict["loop_address"] = idx - 11
-                    response_dict["switch_type"] = "num4"
-                    response_dict['device'] = device_dict[idx - 11]
+                if idx < 12 and idx >=8:
+                    loop_address = idx - 7
+                    device_dict = next((d for d in devices_list if d.get("loop_address") == loop_address), None)
+                    if device_dict:
+                        device_dict['voltage_sensor'] = response[0]
 
-                elif idx < 20 and idx >=16 and device_dict[idx - 15]:
-                    response_dict["loop_address"] = idx - 15
-                    response_dict["switch_type"] = "num5"
-                    response_dict['device'] = device_dict[idx - 15]
+                if idx < 16 and idx >=12:
+                    loop_address = idx - 11
+                    device_dict = next((d for d in devices_list if d.get("loop_address") == loop_address), None)
+                    if device_dict:
+                        device_dict['power_sensor'] = response[0] / 1000
 
-                if response_dict['device']:
-                    response_dict_array.append(response_dict)
-
+                if idx < 20 and idx >=16:
+                    loop_address = idx - 15
+                    device_dict = next((d for d in devices_list if d.get("loop_address") == loop_address), None)
+                    if device_dict:
+                        hex_part1 = format(response[1], "02x")
+                        hex_part2 = format(response[0], "02x")
+                        combined_hex = hex_part1 + hex_part2
+                        decimal_value = int(combined_hex, 16) / 100
+                        device_dict['energy_sensor'] = decimal_value
+            if devices_list:
+                response_dict_array = response_dict_array + devices_list
         return response_dict_array
 
     async def update_all_device_state(self, devices):
