@@ -494,10 +494,10 @@ class TCPConnectionManager:
                         "unique_id":"",
                         "device":None,
                         "state": False,
-                        "voltage_sensor":1.0,
-                        "current_sensor":1.0,
-                        "power_sensor":1.0,
-                        "energy_sensor":1.0
+                        "voltage_sensor":0.0,
+                        "current_sensor":0.0,
+                        "power_sensor":0.0,
+                        "energy_sensor":0.0
                     }
                     unique_id = f"{module_address}_{loop_address}_switch_with_energy"
                     device_dict['unique_id'] = unique_id
