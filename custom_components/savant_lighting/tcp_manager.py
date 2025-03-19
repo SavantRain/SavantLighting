@@ -24,7 +24,7 @@ class TCPConnectionManager:
         """设置 Home Assistant 的核心对象"""
         self.hass = hass
 
-    async def connect(self):
+    async def connect(self, entry=None):
         """建立TCP连接"""
         if self._is_connected:
             _LOGGER.debug("连接已存在，复用现有连接")
@@ -33,8 +33,11 @@ class TCPConnectionManager:
             self.reader, self.writer = await asyncio.open_connection(self.host, self.port)
             self._is_connected = True
             _LOGGER.info(f"成功连接到 {self.host}:{self.port}")
-            # 启动后台任务来监听响应
+
             asyncio.create_task(self._listen_for_responses())
+
+            devices = self.hass.data[DOMAIN][entry.entry_id].get("devices")
+            asyncio.create_task(self.update_all_device_state(devices))
 
             if not self._keep_alive_task:
                 self._keep_alive_task = asyncio.create_task(self._send_keep_alive())

@@ -33,9 +33,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     @callback
     def handle_ha_started(event):
-        hass.async_create_task(tcp_manager.connect())
-        devices = hass.data[DOMAIN][entry.entry_id].get("devices")
-        hass.async_create_task(tcp_manager.update_all_device_state(devices))
+        hass.async_create_task(tcp_manager.connect(entry))
 
     hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, handle_ha_started)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
