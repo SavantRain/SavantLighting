@@ -98,7 +98,6 @@ class TCPConnectionManager:
                                 _LOGGER.warning(f"未识别的设备类型: {response_dict['unique_id']} {response_dict['device_type']}")
                             else:
                                 _LOGGER.warning(f"响应处理失败: {response_dict['unique_id']} {response_dict['device']} {response_dict['device_type']}")
-                    continue
 
                     response_dict = self._parse_response(response_str)
                     if response_dict['device_type'] in self._callbacks and response_dict['device']:
