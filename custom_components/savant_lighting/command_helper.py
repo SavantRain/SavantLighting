@@ -86,22 +86,27 @@ class LightCommand:
         return command
 
     def rgb_color_temp(self, color_temp_kelvin_value):
+        loop_hex_value = int(self.loop_hex, 16)
+        loop_hex_value += 1
+        loop_hex_original = f"{loop_hex_value:02X}"
         color_temp_hex = (
             f"{int(color_temp_kelvin_value):02X}"
             if color_temp_kelvin_value is not None
             else "00"
         )
-        command_hex = f"{self.loop_hex}0004FF00{color_temp_hex}10CA"
+        command_hex = f"{loop_hex_original}0004{color_temp_hex}000012CA"
         command_bytes = bytes.fromhex(command_hex)
         command = self.host_bytes + self.module_bytes + command_bytes
         return command
 
-    def rgb_color(self, color_rgb_hex):
-        # 以下代码需要实现颜色指令的转换，请重构
-        color_rgb_hex = (
-            f"{int(color_rgb_hex):02X}" if color_rgb_hex is not None else "00"
-        )
-        command_hex = f"{self.loop_hex}0004FF00{color_rgb_hex}10CA"
+    def rgb_color(self, r=0, g=0, b=0):
+        loop_hex_value = int(self.loop_hex, 16)
+        loop_hex_value += 2
+        loop_hex_original = f"{loop_hex_value:02X}"
+        r = max(0, min(255, r))
+        g = max(0, min(255, g))
+        b = max(0, min(255, b))
+        command_hex = f"{loop_hex_original}0004{r:02X}{g:02X}{b:02X}13CA"
         command_bytes = bytes.fromhex(command_hex)
         command = self.host_bytes + self.module_bytes + command_bytes
         return command

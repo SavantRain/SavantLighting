@@ -1,6 +1,6 @@
 import logging
 from datetime import timedelta
-from homeassistant.components.light import LightEntity, ColorMode
+from homeassistant.components.light import LightEntity, ColorMode, SUPPORT_COLOR
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import EntityCategory
@@ -58,9 +58,11 @@ class SavantLight(LightEntity):
             self._color_temp_kelvin = int(1000000 / 370)  # converting mireds to kelvin
             self._attr_min_color_temp_kelvin = int(1000000 / 667)  # converting max mireds to kelvin
             self._attr_max_color_temp_kelvin = int(1000000 / 152)  # converting min mireds to kelvin
-            self._color_mode = ColorMode.HS
-            self._hs_color = (0, 0)
-            self._supported_color_modes = {ColorMode.COLOR_TEMP, ColorMode.HS }
+            self._color_mode = ColorMode.RGB
+            self._rgb_color = (0, 0, 0)
+            self._attr_rgb_color = (0, 0, 0)
+            self._supported_features = SUPPORT_COLOR
+            self._supported_color_modes = {ColorMode.COLOR_TEMP, ColorMode.RGB }
         elif self._sub_device_type in ("DALI-01", "DALI-02"):
             self._color_temp_mireds = 370
             self._min_mireds = 152
@@ -91,8 +93,13 @@ class SavantLight(LightEntity):
         return self._brightness
 
     @property
-    def hs_color(self):
-        return self._hs_color
+    def rgb_color(self):
+        return self._rgb_color
+    
+    @property
+    def rgb_color(self) -> tuple[int, int, int] | None:
+        """Return the rgb color value [int, int, int]."""
+        return self._attr_rgb_color
 
     @property
     def color_temp(self):
@@ -133,7 +140,7 @@ class SavantLight(LightEntity):
     async def async_turn_on(self, **kwargs):
         self._state = True
         command_list = []
-        command_list.append(self.command.turnonoff("on"))
+        # command_list.append(self.command.turnonoff("on"))
 
         if "brightness" in kwargs:
             brightness_value = kwargs["brightness"]
@@ -161,10 +168,9 @@ class SavantLight(LightEntity):
                 case "DALI-02":
                     hex_command = self.command.dali02_color_temp(kelvin_value)
             command_list.append(hex_command)
-        if "hs_color" in kwargs:
-            self._hs_color = kwargs["hs_color"]
-            self._color_mode = ColorMode.HS
-            hex_command = self.command.rgb_color(self._hs_color)
+        if "rgb_color" in kwargs:
+            r, g, b = kwargs["rgb_color"]
+            hex_command = self.command.rgb_color(r, g, b)
             command_list.append(hex_command)
         self.async_write_ha_state()
         await self.tcp_manager.send_command_list(command_list)
@@ -193,9 +199,19 @@ class SavantLight(LightEntity):
                 device._state = True
 
         elif response_dict['sub_device_type'] == 'DALI-01' and response_dict['data4'] == 0x12:
-            device._color_temp_mireds = response_dict['data1'] * 100
-            device._color_temp_kelvin = int(1000000 / device._color_temp_mireds)
+            if response_dict['data1'] != 0x00:
+                device._color_temp_mireds = 1000000/(response_dict['data1']*100)
+                device._color_temp_kelvin = int(1000000 / device._color_temp_mireds)
 
+        elif response_dict['sub_device_type'] == 'rgb' and response_dict['data4'] == 0x13:
+            if response_dict['data1'] != 0x00:
+                device._attr_rgb_color = (
+                response_dict['data1'],  # R 值
+                response_dict['data2'],  # G 值
+                response_dict['data3']   # B 值
+                )
+                device._state = True
+                device.async_write_ha_state()
         elif response_dict['sub_device_type'] == 'DALI-02' and response_dict['data4'] == 0x15:
             device._brightness = response_dict['data1'] * 255 / 100
             if response_dict['data1'] == 0x00:

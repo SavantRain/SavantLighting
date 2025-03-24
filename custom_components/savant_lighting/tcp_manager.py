@@ -275,6 +275,12 @@ class TCPConnectionManager:
         elif response_dict["data4"] == 0x15:
             response_dict["device_type"] = "light"
             response_dict["sub_device_type"] = "DALI-02"
+        
+        elif response_dict["data4"] == 0x13:
+            response_dict["device_type"] = "light"
+            response_dict["sub_device_type"] = "rgb"
+            if response_dict["data4"] == 0x13:
+                response_dict["loop_address"] = response_dict["loop_address"] - 2
 
         elif response_dict["data2"] == 0x00 and response_dict["data3"] == 0x00 and response_dict["data4"] == 0x10:
             response_dict["device_type"] = "light"
