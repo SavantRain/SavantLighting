@@ -59,8 +59,7 @@ class SavantLight(LightEntity):
             self._attr_min_color_temp_kelvin = int(1000000 / 667)  # converting max mireds to kelvin
             self._attr_max_color_temp_kelvin = int(1000000 / 152)  # converting min mireds to kelvin
             self._color_mode = ColorMode.RGB
-            self._rgb_color = (0, 0, 0)
-            self._attr_rgb_color = (0, 0, 0)
+            self._rgb_color = (255, 255, 255)
             self._supported_features = SUPPORT_COLOR
             self._supported_color_modes = {ColorMode.COLOR_TEMP, ColorMode.RGB }
         elif self._sub_device_type in ("DALI-01", "DALI-02"):
@@ -95,11 +94,10 @@ class SavantLight(LightEntity):
     @property
     def rgb_color(self):
         return self._rgb_color
-    
+
     @property
-    def rgb_color(self) -> tuple[int, int, int] | None:
-        """Return the rgb color value [int, int, int]."""
-        return self._attr_rgb_color
+    def color_mode(self):
+        return self._color_mode
 
     @property
     def color_temp(self):
@@ -144,6 +142,7 @@ class SavantLight(LightEntity):
 
         if "brightness" in kwargs:
             brightness_value = kwargs["brightness"]
+            self._brightness = brightness_value
             self._brightness_percentage = int((brightness_value / 255) * 100)
             match self._sub_device_type:
                 case "0603D":
@@ -158,8 +157,9 @@ class SavantLight(LightEntity):
                     hex_command = self.command.brightness(self._brightness_percentage)
             command_list.append(hex_command)
         if "color_temp_kelvin" in kwargs:
+            self._color_temp_kelvin = kwargs["color_temp_kelvin"]
+            self._color_temp_mireds = int(1000000 / self._color_temp_kelvin)
             kelvin_value = str(kwargs['color_temp_kelvin'])[:2]
-            self._color_mode = ColorMode.COLOR_TEMP
             match self._sub_device_type:
                 case "rgb":
                     hex_command = self.command.rgb_color_temp(kelvin_value)
@@ -169,9 +169,11 @@ class SavantLight(LightEntity):
                     hex_command = self.command.dali02_color_temp(kelvin_value)
             command_list.append(hex_command)
         if "rgb_color" in kwargs:
+            self._rgb_color = kwargs["rgb_color"]
             r, g, b = kwargs["rgb_color"]
             hex_command = self.command.rgb_color(r, g, b)
             command_list.append(hex_command)
+
         self.async_write_ha_state()
         await self.tcp_manager.send_command_list(command_list)
 
@@ -205,7 +207,7 @@ class SavantLight(LightEntity):
 
         elif response_dict['sub_device_type'] == 'rgb' and response_dict['data4'] == 0x13:
             if response_dict['data1'] != 0x00:
-                device._attr_rgb_color = (
+                device._rgb_color = (
                 response_dict['data1'],  # R 值
                 response_dict['data2'],  # G 值
                 response_dict['data3']   # B 值

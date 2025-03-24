@@ -6,3 +6,5 @@ __pycache__
 home-assistant_v2.db*
 .venv
 .vscode
+hacs
+www
